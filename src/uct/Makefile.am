@@ -257,16 +257,16 @@ libuct_la_CPPFLAGS += $(ROCM_CPPFLAGS)
 libuct_la_LDFLAGS +=  $(ROCM_LDFLAGS) $(ROCM_LIBS)
 
 noinst_HEADERS += \
-    rocm/rocm_cma_md.h \
-    rocm/rocm_cma_iface.h \
-    rocm/rocm_cma_ep.h \
-    rocm/rocm_common.h
+    rocm/cma/rocm_cma_md.h \
+    rocm/cma/rocm_cma_iface.h \
+    rocm/cma/rocm_cma_ep.h \
+    rocm/cma/rocm_common.h
 
 libuct_la_SOURCES += \
-    rocm/rocm_cma_md.c \
-    rocm/rocm_cma_iface.c \
-    rocm/rocm_cma_ep.c \
-    rocm/rocm_common.c
+    rocm/cma/rocm_cma_md.c \
+    rocm/cma/rocm_cma_iface.c \
+    rocm/cma/rocm_cma_ep.c \
+    rocm/cma/rocm_common.c
 endif
 
 # FIXME these should be done conditionally
