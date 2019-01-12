@@ -223,6 +223,6 @@ static ucs_status_t uct_rocm_cma_md_open(const char *md_name,
 UCT_MD_COMPONENT_DEFINE(uct_rocm_cma_md_component, UCT_ROCM_CMA_MD_NAME,
                         uct_rocm_cma_query_md_resources, uct_rocm_cma_md_open, 0,
                         uct_rocm_cma_rkey_unpack,
-                        uct_rocm_cma_rkey_release, "ROCM_MD_",
+                        uct_rocm_cma_rkey_release, "ROCM_CMA_MD_",
                         uct_rocm_cma_md_config_table,
                         uct_rocm_cma_md_config_t);
