@@ -12,7 +12,7 @@
 /** Define name of memory domain for GPU memory. Must not be larget than
     UCT_MD_COMPONENT_NAME_MAX.
 */
-#define UCT_ROCM_CMA_MD_NAME    "rocm"
+#define UCT_ROCM_CMA_MD_NAME    "rocm_cma"
 
 extern uct_md_component_t uct_rocm_cma_md_component;
 
