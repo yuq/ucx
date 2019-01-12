@@ -14,7 +14,7 @@
 /** Define name of transport used for memory operation. Must not be larger than
     UCT_TL_NAME_MAX
 */
-#define UCT_ROCM_CMA_TL_NAME    "rocm"
+#define UCT_ROCM_CMA_TL_NAME    "rocm_cma"
 
 
 typedef struct uct_rocm_cma_iface {

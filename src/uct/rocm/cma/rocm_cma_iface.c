@@ -185,7 +185,7 @@ UCT_TL_COMPONENT_DEFINE(uct_rocm_cma_tl,
                         uct_rocm_cma_query_tl_resources,
                         uct_rocm_cma_iface_t,
                         UCT_ROCM_CMA_TL_NAME,
-                        "ROCM_TL_",
+                        "ROCM_CMA_",
                         uct_rocm_cma_iface_config_table,
                         uct_rocm_cma_iface_config_t);
 
