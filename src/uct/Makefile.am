@@ -73,4 +73,16 @@ libuct_la_SOURCES += \
     rocm/cma/rocm_cma_iface.c \
     rocm/cma/rocm_cma_ep.c \
     rocm/cma/rocm_common.c
+
+noinst_HEADERS += \
+    rocm/ipc/rocm_ipc_md.h \
+    rocm/ipc/rocm_ipc_iface.h \
+    rocm/ipc/rocm_ipc_ep.h \
+    rocm/ipc/rocm_ipc_util.h
+
+libuct_la_SOURCES += \
+    rocm/ipc/rocm_ipc_md.c \
+    rocm/ipc/rocm_ipc_iface.c \
+    rocm/ipc/rocm_ipc_ep.c \
+    rocm/ipc/rocm_ipc_util.c
 endif
