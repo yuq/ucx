@@ -58,8 +58,11 @@ ucs_status_t uct_rocm_ipc_ep_zcopy(uct_ep_h tl_ep,
                                            NULL, &remote_base_addr);
         assert(status == HSA_STATUS_SUCCESS);
 
-        status = hsa_amd_agents_allow_access(2, agents, NULL, iov->buffer);
-        assert(status == HSA_STATUS_SUCCESS);
+        if (uct_rocm_ipc_is_gpu_agent(agents[0]) &&
+            uct_rocm_ipc_is_gpu_agent(agents[1])) {
+            status = hsa_amd_agents_allow_access(2, agents, NULL, iov->buffer);
+            assert(status == HSA_STATUS_SUCCESS);
+        }
     }
 
     remote_copy_addr = remote_base_addr + (remote_addr - key->address);
