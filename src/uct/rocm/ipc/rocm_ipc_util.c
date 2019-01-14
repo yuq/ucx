@@ -8,8 +8,10 @@
 
 #define MAX_AGENTS 16
 static struct agents {
-	hsa_agent_t agents[MAX_AGENTS];
-	int num;
+    hsa_agent_t agents[MAX_AGENTS];
+    int num;
+    hsa_agent_t gpu_agents[MAX_AGENTS];
+    int num_gpu;
 } uct_rocm_ipc_agents = {0};
 
 static hsa_status_t uct_rocm_hsa_agent_callback(hsa_agent_t agent, void* data)
@@ -21,8 +23,10 @@ static hsa_status_t uct_rocm_hsa_agent_callback(hsa_agent_t agent, void* data)
 	hsa_agent_get_info(agent, HSA_AGENT_INFO_DEVICE, &device_type);
 	if (device_type == HSA_DEVICE_TYPE_CPU)
         printf("%d found cpu agent %lu\n", getpid(), agent.handle);
-    else if (device_type == HSA_DEVICE_TYPE_GPU)
+    else if (device_type == HSA_DEVICE_TYPE_GPU) {
+        uct_rocm_ipc_agents.gpu_agents[uct_rocm_ipc_agents.num_gpu++] = agent;
         printf("%d found gpu agent %lu\n", getpid(), agent.handle);
+    }
     else
         printf("%d found unknown agent %lu\n", getpid(), agent.handle);
 
@@ -94,6 +98,17 @@ static int uct_rocm_ipc_get_dev_num(hsa_agent_t agent)
     }
     assert(0);
     return -1;
+}
+
+int uct_rocm_ipc_is_gpu_agent(hsa_agent_t agent)
+{
+    int i;
+
+    for (i = 0; i < uct_rocm_ipc_agents.num_gpu; i++) {
+        if (uct_rocm_ipc_agents.gpu_agents[i].handle == agent.handle)
+            return 1;
+    }
+    return 0;
 }
 
 hsa_status_t uct_rocm_ipc_pack_key(void *address, size_t length,

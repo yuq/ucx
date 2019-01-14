@@ -13,6 +13,7 @@
 hsa_status_t uct_rocm_ipc_init(void);
 hsa_agent_t uct_rocm_ipc_get_mem_agent(void *address);
 hsa_agent_t uct_rocm_ipc_get_dev_agent(int dev_num);
+int uct_rocm_ipc_is_gpu_agent(hsa_agent_t agent);
 hsa_status_t uct_rocm_ipc_pack_key(void *address, size_t length,
                                    uct_rocm_ipc_key_t *key);
 
