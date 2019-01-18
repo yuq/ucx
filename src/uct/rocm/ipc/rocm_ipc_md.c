@@ -50,9 +50,9 @@ static ucs_status_t uct_rocm_ipc_mkey_pack(uct_md_h md, uct_mem_h memh,
                                            void *rkey_buffer)
 {
     uct_rocm_ipc_key_t *packed   = (uct_rocm_ipc_key_t *) rkey_buffer;
-    uct_rocm_ipc_key_t *mem_hndl = (uct_rocm_ipc_key_t *) memh;
+    uct_rocm_ipc_key_t *key = (uct_rocm_ipc_key_t *) memh;
 
-    *packed = *mem_hndl;
+    *packed = *key;
 
     return UCS_OK;
 }
@@ -63,7 +63,7 @@ static ucs_status_t uct_rocm_ipc_mem_reg(uct_md_h md, void *address, size_t leng
     uct_rocm_ipc_key_t *key;
     hsa_status_t status;
 
-    key = ucs_malloc(sizeof(uct_rocm_ipc_key_t), "uct_rocm_ipc_key_t");
+    key = ucs_malloc(sizeof(*key), "uct_rocm_ipc_key_t");
     if (NULL == key) {
         ucs_error("Failed to allocate memory for uct_rocm_ipc_key_t");
         return UCS_ERR_NO_MEMORY;
@@ -83,6 +83,9 @@ static ucs_status_t uct_rocm_ipc_mem_reg(uct_md_h md, void *address, size_t leng
 static ucs_status_t uct_rocm_ipc_mem_dereg(uct_md_h md, uct_mem_h memh)
 {
     uct_rocm_ipc_key_t *key = (uct_rocm_ipc_key_t *)memh;
+
+    if (key->lock_address)
+        hsa_amd_memory_unlock((void *)key->lock_address);
 
     ucs_free(key);
     return UCS_OK;

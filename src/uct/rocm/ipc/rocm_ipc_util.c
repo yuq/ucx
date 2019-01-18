@@ -25,7 +25,10 @@ static hsa_status_t uct_rocm_hsa_agent_callback(hsa_agent_t agent, void* data)
         printf("%d found cpu agent %lu\n", getpid(), agent.handle);
     else if (device_type == HSA_DEVICE_TYPE_GPU) {
         uct_rocm_ipc_agents.gpu_agents[uct_rocm_ipc_agents.num_gpu++] = agent;
-        printf("%d found gpu agent %lu\n", getpid(), agent.handle);
+
+        uint32_t bdfid;
+        hsa_agent_get_info(agent, HSA_AMD_AGENT_INFO_BDFID, &bdfid);
+        printf("%d found gpu agent %lu bdfid %x\n", getpid(), agent.handle, bdfid);
     }
     else
         printf("%d found unknown agent %lu\n", getpid(), agent.handle);
@@ -70,18 +73,6 @@ end:
     return status;
 }
 
-hsa_agent_t uct_rocm_ipc_get_mem_agent(void *address)
-{
-    hsa_amd_pointer_info_t info;
-    hsa_status_t status;
-
-    info.size = sizeof(hsa_amd_pointer_info_t);
-    status = hsa_amd_pointer_info(address, &info, NULL, NULL, NULL);
-    assert(status == HSA_STATUS_SUCCESS);
-
-    return info.agentOwner;
-}
-
 hsa_agent_t uct_rocm_ipc_get_dev_agent(int dev_num)
 {
     assert(dev_num < uct_rocm_ipc_agents.num);
@@ -111,24 +102,59 @@ int uct_rocm_ipc_is_gpu_agent(hsa_agent_t agent)
     return 0;
 }
 
-hsa_status_t uct_rocm_ipc_pack_key(void *address, size_t length,
-                                   uct_rocm_ipc_key_t *key)
-
+hsa_status_t uct_rocm_ipc_lock_ptr(void *ptr, size_t size, void **lock_ptr,
+                                   hsa_agent_t *agent)
 {
     hsa_status_t status;
-    hsa_agent_t agent;
-    
-    status = hsa_amd_ipc_memory_create(address, length, &key->ipc);
+    hsa_amd_pointer_info_t info;
+
+    info.size = sizeof(hsa_amd_pointer_info_t);
+    status = hsa_amd_pointer_info(ptr, &info, NULL, NULL, NULL);
     if (status != HSA_STATUS_SUCCESS) {
-        ucs_error("Failed to create ipc %p", address);
+        ucs_error("get pointer info fail");
         return status;
     }
 
-    agent = uct_rocm_ipc_get_mem_agent(address);
+    *agent = info.agentOwner;
+
+    if (info.type != HSA_EXT_POINTER_TYPE_UNKNOWN &&
+        info.type != HSA_EXT_POINTER_TYPE_LOCKED) {
+        *lock_ptr = NULL;
+        return HSA_STATUS_SUCCESS;
+    }
+
+    status = hsa_amd_memory_lock(ptr, size, NULL, 0, lock_ptr);
+    if (status != HSA_STATUS_SUCCESS)
+        ucs_error("lock user mem fail");
+
+    return status;
+}
+
+hsa_status_t uct_rocm_ipc_pack_key(void *address, size_t length,
+                                   uct_rocm_ipc_key_t *key)
+{
+    hsa_status_t status;
+    hsa_agent_t agent;
+    void *lock_ptr;
+
+    status = uct_rocm_ipc_lock_ptr(address, length, &lock_ptr, &agent);
+    if (status != HSA_STATUS_SUCCESS)
+        return status;
 
     key->address = (uintptr_t)address;
+    key->lock_address = (uintptr_t)lock_ptr;
     key->length = length;
     key->dev_num = uct_rocm_ipc_get_dev_num(agent);
+
+    /* IPC does not support locked ptr yet */
+    if (lock_ptr)
+        return HSA_STATUS_SUCCESS;
+
+    status = hsa_amd_ipc_memory_create(address, length, &key->ipc);
+    if (status != HSA_STATUS_SUCCESS) {
+        ucs_error("Failed to create ipc for %p", address);
+        return status;
+    }
 
     return HSA_STATUS_SUCCESS;
 }
