@@ -20,21 +20,22 @@ static hsa_status_t uct_rocm_hsa_agent_callback(hsa_agent_t agent, void* data)
 
     assert(uct_rocm_ipc_agents.num < MAX_AGENTS);
 
-	hsa_agent_get_info(agent, HSA_AGENT_INFO_DEVICE, &device_type);
-	if (device_type == HSA_DEVICE_TYPE_CPU)
-        printf("%d found cpu agent %lu\n", getpid(), agent.handle);
-    else if (device_type == HSA_DEVICE_TYPE_GPU) {
-        uct_rocm_ipc_agents.gpu_agents[uct_rocm_ipc_agents.num_gpu++] = agent;
-
-        uint32_t bdfid;
-        hsa_agent_get_info(agent, HSA_AMD_AGENT_INFO_BDFID, &bdfid);
-        printf("%d found gpu agent %lu bdfid %x\n", getpid(), agent.handle, bdfid);
+    hsa_agent_get_info(agent, HSA_AGENT_INFO_DEVICE, &device_type);
+    if (device_type == HSA_DEVICE_TYPE_CPU) {
+        ucs_trace("%d found cpu agent %lu", getpid(), agent.handle);
     }
-    else
-        printf("%d found unknown agent %lu\n", getpid(), agent.handle);
+    else if (device_type == HSA_DEVICE_TYPE_GPU) {
+        uint32_t bdfid = 0;
+        uct_rocm_ipc_agents.gpu_agents[uct_rocm_ipc_agents.num_gpu++] = agent;
+        hsa_agent_get_info(agent, HSA_AMD_AGENT_INFO_BDFID, &bdfid);
+        ucs_trace("%d found gpu agent %lu bdfid %x", getpid(), agent.handle, bdfid);
+    }
+    else {
+        ucs_trace("%d found unknown agent %lu", getpid(), agent.handle);
+    }
 
-	uct_rocm_ipc_agents.agents[uct_rocm_ipc_agents.num++] = agent;
-	return HSA_STATUS_SUCCESS;
+    uct_rocm_ipc_agents.agents[uct_rocm_ipc_agents.num++] = agent;
+    return HSA_STATUS_SUCCESS;
 }
 
 hsa_status_t uct_rocm_ipc_init(void)
