@@ -73,7 +73,8 @@ ucs_status_t uct_rocm_ipc_ep_zcopy(uct_ep_h tl_ep,
                                                NULL, &remote_base_addr);
             assert(status == HSA_STATUS_SUCCESS);
 
-            if (agents[0].handle != agents[1].handle &&
+            if (!lock_addr &&
+                agents[0].handle != agents[1].handle &&
                 uct_rocm_ipc_is_gpu_agent(agents[0]) &&
                 uct_rocm_ipc_is_gpu_agent(agents[1])) {
                 status = hsa_amd_agents_allow_access(2, agents, NULL, local_addr);
