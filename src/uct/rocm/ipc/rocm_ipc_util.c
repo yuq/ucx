@@ -110,7 +110,7 @@ int uct_rocm_ipc_is_gpu_agent(hsa_agent_t agent)
 }
 
 hsa_status_t uct_rocm_ipc_lock_ptr(void *ptr, size_t size, void **lock_ptr,
-                                   hsa_agent_t *agent)
+                                   void **base_ptr, hsa_agent_t *agent)
 {
     hsa_status_t status;
     hsa_amd_pointer_info_t info;
@@ -127,6 +127,8 @@ hsa_status_t uct_rocm_ipc_lock_ptr(void *ptr, size_t size, void **lock_ptr,
     if (info.type != HSA_EXT_POINTER_TYPE_UNKNOWN &&
         info.type != HSA_EXT_POINTER_TYPE_LOCKED) {
         *lock_ptr = NULL;
+        if (base_ptr)
+            *base_ptr = info.agentBaseAddress;
         return HSA_STATUS_SUCCESS;
     }
 
@@ -144,7 +146,7 @@ hsa_status_t uct_rocm_ipc_pack_key(void *address, size_t length,
     hsa_agent_t agent;
     void *lock_ptr;
 
-    status = uct_rocm_ipc_lock_ptr(address, length, &lock_ptr, &agent);
+    status = uct_rocm_ipc_lock_ptr(address, length, &lock_ptr, NULL, &agent);
     if (status != HSA_STATUS_SUCCESS)
         return status;
 
