@@ -280,7 +280,8 @@ std::ostream& operator<<(std::ostream& os, const resource* resource);
     mm,                      \
     cma,                     \
     knem,                    \
-    rocm
+    rocm_cma,                \
+    rocm_ipc
 
 #define UCT_TEST_CUDA_MEM_TYPE_TLS \
     cuda_copy,              \
