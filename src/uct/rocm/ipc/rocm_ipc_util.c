@@ -14,6 +14,12 @@ static struct agents {
     int num_gpu;
 } uct_rocm_ipc_agents = {0};
 
+int uct_rocm_ipc_get_gpu_agents(hsa_agent_t **agents)
+{
+    *agents = uct_rocm_ipc_agents.gpu_agents;
+    return uct_rocm_ipc_agents.num_gpu;
+}
+
 static hsa_status_t uct_rocm_hsa_agent_callback(hsa_agent_t agent, void* data)
 {
     hsa_device_type_t device_type;
