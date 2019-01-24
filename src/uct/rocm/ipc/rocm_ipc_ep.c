@@ -48,6 +48,10 @@ ucs_status_t uct_rocm_ipc_ep_zcopy(uct_ep_h tl_ep,
     ucs_status_t ret = UCS_OK;
     void *lock_addr, *local_addr;
 
+    /* no data to deliver */
+    if (!size)
+        return UCS_OK;
+
     status = uct_rocm_ipc_lock_ptr(iov->buffer, size, &lock_addr,
                                    &local_agent);
     if (status != HSA_STATUS_SUCCESS)
