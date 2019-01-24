@@ -46,14 +46,14 @@ ucs_status_t uct_rocm_ipc_ep_zcopy(uct_ep_h tl_ep,
     hsa_agent_t local_agent, remote_agent;
     size_t size = uct_iov_get_length(iov);
     ucs_status_t ret = UCS_OK;
-    void *lock_addr, *local_addr;
+    void *lock_addr, *base_addr, *local_addr;
 
     /* no data to deliver */
     if (!size)
         return UCS_OK;
 
     status = uct_rocm_ipc_lock_ptr(iov->buffer, size, &lock_addr,
-                                   &local_agent);
+                                   &base_addr, &local_agent);
     if (status != HSA_STATUS_SUCCESS)
         return status;
 
@@ -68,7 +68,7 @@ ucs_status_t uct_rocm_ipc_ep_zcopy(uct_ep_h tl_ep,
         status = hsa_amd_ipc_memory_attach(&key->ipc, key->length, 0,
                                            NULL, &remote_base_addr);
         if (status != HSA_STATUS_SUCCESS) {
-            ucs_error("fail to attach ipc mem\n");
+            ucs_error("fail to attach ipc mem %p %d\n", (void *)key->address, status);
             ret = UCS_ERR_NO_RESOURCE;
             goto out_unlock;
         }
@@ -76,9 +76,10 @@ ucs_status_t uct_rocm_ipc_ep_zcopy(uct_ep_h tl_ep,
         if (!lock_addr) {
             hsa_agent_t *gpu_agents;
             int num_gpu = uct_rocm_ipc_get_gpu_agents(&gpu_agents);
-            status = hsa_amd_agents_allow_access(num_gpu, gpu_agents, NULL, local_addr);
+            status = hsa_amd_agents_allow_access(num_gpu, gpu_agents, NULL, base_addr);
             if (status != HSA_STATUS_SUCCESS) {
-                ucs_error("fail to map local mem\n");
+                ucs_error("fail to map local mem %p %p %d\n",
+                          local_addr, base_addr, status);
                 ret = UCS_ERR_INVALID_ADDR;
                 goto out_detach;
             }
