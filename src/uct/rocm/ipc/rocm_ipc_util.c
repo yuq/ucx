@@ -118,7 +118,7 @@ hsa_status_t uct_rocm_ipc_lock_ptr(void *ptr, size_t size, void **lock_ptr,
     info.size = sizeof(hsa_amd_pointer_info_t);
     status = hsa_amd_pointer_info(ptr, &info, NULL, NULL, NULL);
     if (status != HSA_STATUS_SUCCESS) {
-        ucs_error("get pointer info fail");
+        ucs_error("get pointer info fail %p", ptr);
         return status;
     }
 
