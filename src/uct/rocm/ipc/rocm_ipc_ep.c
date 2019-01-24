@@ -43,7 +43,7 @@ ucs_status_t uct_rocm_ipc_ep_zcopy(uct_ep_h tl_ep,
                                    int is_put)
 {
     hsa_status_t status;
-    hsa_agent_t local_agent;
+    hsa_agent_t local_agent, remote_agent;
     size_t size = uct_iov_get_length(iov);
     ucs_status_t ret = UCS_OK;
     void *lock_addr, *local_addr;
@@ -57,44 +57,53 @@ ucs_status_t uct_rocm_ipc_ep_zcopy(uct_ep_h tl_ep,
 
     if (!key->lock_address) {
         void *remote_base_addr, *remote_copy_addr;
-        hsa_agent_t agents[2];
+        void *dst_addr, *src_addr;
+        hsa_agent_t dst_agent, src_agent;
         hsa_signal_t signal;
 
-        agents[0] = local_agent;
-        agents[1] = uct_rocm_ipc_get_dev_agent(key->dev_num);
-
-        if (is_put) {
-            status = hsa_amd_ipc_memory_attach(&key->ipc, key->length, 1,
-                                               agents, &remote_base_addr);
-            assert(status == HSA_STATUS_SUCCESS);
+        status = hsa_amd_ipc_memory_attach(&key->ipc, key->length, 0,
+                                           NULL, &remote_base_addr);
+        if (status != HSA_STATUS_SUCCESS) {
+            ucs_error("fail to attach ipc mem\n");
+            ret = UCS_ERR_NO_RESOURCE;
+            goto out_unlock;
         }
-        else {
-            status = hsa_amd_ipc_memory_attach(&key->ipc, key->length, 0,
-                                               NULL, &remote_base_addr);
-            assert(status == HSA_STATUS_SUCCESS);
 
-            if (!lock_addr &&
-                agents[0].handle != agents[1].handle &&
-                uct_rocm_ipc_is_gpu_agent(agents[0]) &&
-                uct_rocm_ipc_is_gpu_agent(agents[1])) {
-                status = hsa_amd_agents_allow_access(2, agents, NULL, local_addr);
-                assert(status == HSA_STATUS_SUCCESS);
+        if (!lock_addr) {
+            hsa_agent_t *gpu_agents;
+            int num_gpu = uct_rocm_ipc_get_gpu_agents(&gpu_agents);
+            status = hsa_amd_agents_allow_access(num_gpu, gpu_agents, NULL, local_addr);
+            if (status != HSA_STATUS_SUCCESS) {
+                ucs_error("fail to map local mem\n");
+                ret = UCS_ERR_INVALID_ADDR;
+                goto out_detach;
             }
         }
 
         remote_copy_addr = remote_base_addr + (remote_addr - key->address);
+        remote_agent = uct_rocm_ipc_get_dev_agent(key->dev_num);
+
+        if (is_put) {
+            dst_addr = remote_copy_addr;
+            dst_agent = remote_agent;
+
+            src_addr = local_addr;
+            src_agent = local_agent;
+        }
+        else {
+            dst_addr = local_addr;
+            dst_agent = local_agent;
+
+            src_addr = remote_copy_addr;
+            src_agent = remote_agent;
+        }
 
         status = hsa_signal_create(1, 0, NULL, &signal);
         assert(status == HSA_STATUS_SUCCESS);
 
-        if (is_put)
-            status = hsa_amd_memory_async_copy(remote_copy_addr, agents[1],
-                                               local_addr, agents[0],
-                                               size, 0, NULL, signal);
-        else
-            status = hsa_amd_memory_async_copy(local_addr, agents[0],
-                                               remote_copy_addr, agents[1],
-                                               size, 0, NULL, signal);
+        status = hsa_amd_memory_async_copy(dst_addr, dst_agent,
+                                           src_addr, src_agent,
+                                           size, 0, NULL, signal);
 
         if (status == HSA_STATUS_SUCCESS)
             while (hsa_signal_wait_acquire(signal, HSA_SIGNAL_CONDITION_LT, 1,
@@ -105,6 +114,8 @@ ucs_status_t uct_rocm_ipc_ep_zcopy(uct_ep_h tl_ep,
         }
 
         hsa_signal_destroy(signal);
+
+    out_detach:
         hsa_amd_ipc_memory_detach(remote_base_addr);
     }
     else {
@@ -139,6 +150,7 @@ ucs_status_t uct_rocm_ipc_ep_zcopy(uct_ep_h tl_ep,
             assert(copied == size);
     }
 
+ out_unlock:
     if (lock_addr)
         hsa_amd_memory_unlock(lock_addr);
 
