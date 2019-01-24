@@ -52,6 +52,13 @@ ucs_status_t uct_rocm_ipc_ep_zcopy(uct_ep_h tl_ep,
     if (!size)
         return UCS_OK;
 
+    if ((remote_addr < key->address) ||
+        (remote_addr + size > key->address + key->length)) {
+        ucs_error("remote addr %lx/%lx out of range %lx/%lx",
+                  remote_addr, size, key->address, key->length);
+        return UCS_ERR_INVALID_PARAM;
+    }
+
     status = uct_rocm_ipc_lock_ptr(iov->buffer, size, &lock_addr,
                                    &base_addr, &local_agent);
     if (status != HSA_STATUS_SUCCESS)
