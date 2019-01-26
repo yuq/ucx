@@ -34,8 +34,8 @@ static ucs_status_t uct_rocm_ipc_md_query(uct_md_h md, uct_md_attr_t *md_attr)
     md_attr->rkey_packed_size  = sizeof(uct_rocm_ipc_key_t);
     md_attr->cap.flags         = UCT_MD_FLAG_REG |
                                  UCT_MD_FLAG_NEED_RKEY;
-    md_attr->cap.reg_mem_types = UCS_BIT(UCT_MD_MEM_TYPE_HOST);
-    md_attr->cap.mem_type      = UCT_MD_MEM_TYPE_HOST;
+    md_attr->cap.reg_mem_types = UCS_BIT(UCT_MD_MEM_TYPE_ROCM);
+    md_attr->cap.mem_type      = UCT_MD_MEM_TYPE_ROCM;
     md_attr->cap.max_alloc     = 0;
     md_attr->cap.max_reg       = (1 << 30);
 
@@ -131,7 +131,7 @@ static ucs_status_t uct_rocm_ipc_md_open(const char *md_name,
         .mkey_pack    = uct_rocm_ipc_mkey_pack,
         .mem_reg      = uct_rocm_ipc_mem_reg,
         .mem_dereg    = uct_rocm_ipc_mem_dereg,
-        .is_mem_type_owned = (void *)ucs_empty_function_return_zero,
+        .is_mem_type_owned = uct_rocm_base_is_mem_type_owned,
     };
     static uct_md_t md = {
         .ops       = &md_ops,

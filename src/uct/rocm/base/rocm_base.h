@@ -7,6 +7,7 @@
 #ifndef ROCM_BASE_H
 #define ROCM_BASE_H
 
+#include <uct/base/uct_md.h>
 #include <hsa.h>
 
 hsa_status_t uct_rocm_base_init(void);
@@ -16,5 +17,6 @@ int uct_rocm_base_get_gpu_agents(hsa_agent_t **agents);
 int uct_rocm_base_get_dev_num(hsa_agent_t agent);
 hsa_status_t uct_rocm_base_lock_ptr(void *ptr, size_t size, void **lock_ptr,
                                     void **base_ptr, hsa_agent_t *agent);
+int uct_rocm_base_is_mem_type_owned(uct_md_h md, void *addr, size_t length);
 
 #endif

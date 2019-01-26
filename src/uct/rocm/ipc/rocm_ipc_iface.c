@@ -47,7 +47,8 @@ static int uct_rocm_ipc_iface_is_reachable(const uct_iface_h tl_iface,
 {
     uct_rocm_ipc_iface_t  *iface = ucs_derived_of(tl_iface, uct_rocm_ipc_iface_t);
 
-    return uct_rocm_ipc_iface_node_guid(&iface->super) == *(const uint64_t *)dev_addr;
+    return ((uct_rocm_ipc_iface_node_guid(&iface->super) ==
+            *((const uint64_t *)dev_addr)) && ((getpid() != *(pid_t *)iface_addr)));
 }
 
 static ucs_status_t uct_rocm_ipc_iface_query(uct_iface_h tl_iface,
