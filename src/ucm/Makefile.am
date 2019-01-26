@@ -62,6 +62,15 @@ libucm_la_SOURCES += \
     cuda/cudamem.c
 endif
 
+if HAVE_ROCM
+libucm_la_CPPFLAGS += $(ROCM_CPPFLAGS)
+libucm_la_LDFLAGS  += $(ROCM_LDFLAGS) $(ROCM_LIBS)
+noinst_HEADERS += \
+	rocm/rocmmem.h
+libucm_la_SOURCES += \
+    rocm/rocmmem.c
+endif
+
 if HAVE_UCM_PTMALLOC286
 libucm_la_CPPFLAGS += \
     -fno-strict-aliasing \

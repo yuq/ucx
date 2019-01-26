@@ -141,3 +141,17 @@ hsa_status_t uct_rocm_base_lock_ptr(void *ptr, size_t size, void **lock_ptr,
 
     return status;
 }
+
+int uct_rocm_base_is_mem_type_owned(uct_md_h md, void *addr, size_t length)
+{
+    hsa_status_t status;
+    hsa_amd_pointer_info_t info;
+
+    if (addr == NULL) {
+        return 0;
+    }
+
+    info.size = sizeof(hsa_amd_pointer_info_t);
+    status = hsa_amd_pointer_info(addr, &info, NULL, NULL, NULL);
+    return status == HSA_STATUS_SUCCESS && info.type != HSA_EXT_POINTER_TYPE_UNKNOWN;
+}
