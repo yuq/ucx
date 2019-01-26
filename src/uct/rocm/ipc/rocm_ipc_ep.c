@@ -5,7 +5,9 @@
 
 #include "rocm_ipc_ep.h"
 #include "rocm_ipc_iface.h"
-#include "rocm_ipc_util.h"
+#include "rocm_ipc_md.h"
+
+#include <uct/rocm/base/rocm_base.h>
 
 #include <hsakmt.h>
 
@@ -59,8 +61,8 @@ ucs_status_t uct_rocm_ipc_ep_zcopy(uct_ep_h tl_ep,
         return UCS_ERR_INVALID_PARAM;
     }
 
-    status = uct_rocm_ipc_lock_ptr(iov->buffer, size, &lock_addr,
-                                   &base_addr, &local_agent);
+    status = uct_rocm_base_lock_ptr(iov->buffer, size, &lock_addr,
+                                    &base_addr, &local_agent);
     if (status != HSA_STATUS_SUCCESS)
         return status;
 
@@ -82,7 +84,7 @@ ucs_status_t uct_rocm_ipc_ep_zcopy(uct_ep_h tl_ep,
 
         if (!lock_addr) {
             hsa_agent_t *gpu_agents;
-            int num_gpu = uct_rocm_ipc_get_gpu_agents(&gpu_agents);
+            int num_gpu = uct_rocm_base_get_gpu_agents(&gpu_agents);
             status = hsa_amd_agents_allow_access(num_gpu, gpu_agents, NULL, base_addr);
             if (status != HSA_STATUS_SUCCESS) {
                 ucs_error("fail to map local mem %p %p %d\n",
@@ -93,7 +95,7 @@ ucs_status_t uct_rocm_ipc_ep_zcopy(uct_ep_h tl_ep,
         }
 
         remote_copy_addr = remote_base_addr + (remote_addr - key->address);
-        remote_agent = uct_rocm_ipc_get_dev_agent(key->dev_num);
+        remote_agent = uct_rocm_base_get_dev_agent(key->dev_num);
 
         if (is_put) {
             dst_addr = remote_copy_addr;
