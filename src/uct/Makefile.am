@@ -273,6 +273,16 @@ libuct_la_SOURCES += \
     rocm/ipc/rocm_ipc_ep.c
 
 noinst_HEADERS += \
+    rocm/copy/rocm_copy_md.h \
+    rocm/copy/rocm_copy_iface.h \
+    rocm/copy/rocm_copy_ep.h
+
+libuct_la_SOURCES += \
+    rocm/copy/rocm_copy_md.c \
+    rocm/copy/rocm_copy_iface.c \
+    rocm/copy/rocm_copy_ep.c
+
+noinst_HEADERS += \
 	rocm/base/rocm_base.h
 
 libuct_la_SOURCES += \
