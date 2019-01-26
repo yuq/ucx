@@ -265,14 +265,18 @@ libuct_la_SOURCES += \
 noinst_HEADERS += \
     rocm/ipc/rocm_ipc_md.h \
     rocm/ipc/rocm_ipc_iface.h \
-    rocm/ipc/rocm_ipc_ep.h \
-    rocm/ipc/rocm_ipc_util.h
+    rocm/ipc/rocm_ipc_ep.h
 
 libuct_la_SOURCES += \
     rocm/ipc/rocm_ipc_md.c \
     rocm/ipc/rocm_ipc_iface.c \
-    rocm/ipc/rocm_ipc_ep.c \
-    rocm/ipc/rocm_ipc_util.c
+    rocm/ipc/rocm_ipc_ep.c
+
+noinst_HEADERS += \
+	rocm/base/rocm_base.h
+
+libuct_la_SOURCES += \
+	rocm/base/rocm_base.c
 endif
 
 # FIXME these should be done conditionally
