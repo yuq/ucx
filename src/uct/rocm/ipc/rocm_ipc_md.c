@@ -4,7 +4,8 @@
  */
 
 #include "rocm_ipc_md.h"
-#include "rocm_ipc_util.h"
+
+#include <uct/rocm/base/rocm_base.h>
 
 static ucs_config_field_t uct_rocm_ipc_md_config_table[] = {
     {"", "", NULL,
@@ -17,7 +18,7 @@ static ucs_config_field_t uct_rocm_ipc_md_config_table[] = {
 static ucs_status_t uct_rocm_ipc_query_md_resources(uct_md_resource_desc_t **resources_p,
                                                     unsigned *num_resources_p)
 {
-    if (uct_rocm_ipc_init() != HSA_STATUS_SUCCESS) {
+    if (uct_rocm_base_init() != HSA_STATUS_SUCCESS) {
         ucs_error("Could not initialize ROCm support");
         *resources_p     = NULL;
         *num_resources_p = 0;
@@ -55,6 +56,35 @@ static ucs_status_t uct_rocm_ipc_mkey_pack(uct_md_h md, uct_mem_h memh,
     *packed = *key;
 
     return UCS_OK;
+}
+
+static hsa_status_t uct_rocm_ipc_pack_key(void *address, size_t length,
+                                          uct_rocm_ipc_key_t *key)
+{
+    hsa_status_t status;
+    hsa_agent_t agent;
+    void *lock_ptr;
+
+    status = uct_rocm_base_lock_ptr(address, length, &lock_ptr, NULL, &agent);
+    if (status != HSA_STATUS_SUCCESS)
+        return status;
+
+    key->address = (uintptr_t)address;
+    key->lock_address = (uintptr_t)lock_ptr;
+    key->length = length;
+    key->dev_num = uct_rocm_base_get_dev_num(agent);
+
+    /* IPC does not support locked ptr yet */
+    if (lock_ptr)
+        return HSA_STATUS_SUCCESS;
+
+    status = hsa_amd_ipc_memory_create(address, length, &key->ipc);
+    if (status != HSA_STATUS_SUCCESS) {
+        ucs_error("Failed to create ipc for %p", address);
+        return status;
+    }
+
+    return HSA_STATUS_SUCCESS;
 }
 
 static ucs_status_t uct_rocm_ipc_mem_reg(uct_md_h md, void *address, size_t length,
