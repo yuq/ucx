@@ -10,6 +10,8 @@
 #include <ucs/debug/memtrack.h>
 #include <ucs/type/class.h>
 
+#include <hsa.h>
+
 static UCS_CLASS_INIT_FUNC(uct_rocm_copy_ep_t, uct_iface_t *tl_iface,
                            const uct_device_addr_t *dev_addr,
                            const uct_iface_addr_t *iface_addr)
@@ -90,7 +92,8 @@ ucs_status_t uct_rocm_copy_ep_put_short(uct_ep_h tl_ep, const void *buffer,
                                         unsigned length, uint64_t remote_addr,
                                         uct_rkey_t rkey)
 {
-    memcpy((void *)remote_addr, buffer, length);
+    //memcpy((void *)remote_addr, buffer, length);
+    assert(hsa_memory_copy((void *)remote_addr, buffer, length) == HSA_STATUS_SUCCESS);
 
     UCT_TL_EP_STAT_OP(ucs_derived_of(tl_ep, uct_base_ep_t), PUT, SHORT, length);
     ucs_trace_data("PUT_SHORT size %d from %p to %p",
@@ -103,7 +106,8 @@ ucs_status_t uct_rocm_copy_ep_get_short(uct_ep_h tl_ep, void *buffer,
                                         uct_rkey_t rkey)
 {
     /* device to host */
-    memcpy(buffer, (void *)remote_addr, length);
+    //memcpy(buffer, (void *)remote_addr, length);
+    assert(hsa_memory_copy(buffer, (void *)remote_addr, length) == HSA_STATUS_SUCCESS);
 
     UCT_TL_EP_STAT_OP(ucs_derived_of(tl_ep, uct_base_ep_t), GET, SHORT, length);
     ucs_trace_data("GET_SHORT size %d from %p to %p",
