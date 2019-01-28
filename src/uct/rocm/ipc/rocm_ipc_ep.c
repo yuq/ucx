@@ -42,6 +42,7 @@ ucs_status_t uct_rocm_ipc_ep_zcopy(uct_ep_h tl_ep,
                                    uint64_t remote_addr,
                                    const uct_iov_t *iov,
                                    uct_rocm_ipc_key_t *key,
+                                   uct_completion_t *comp,
                                    int is_put)
 {
     hsa_status_t status;
@@ -69,10 +70,11 @@ ucs_status_t uct_rocm_ipc_ep_zcopy(uct_ep_h tl_ep,
     local_addr = lock_addr ? lock_addr : iov->buffer;
 
     if (!key->lock_address) {
+        uct_rocm_ipc_iface_t *iface = ucs_derived_of(tl_ep->iface, uct_rocm_ipc_iface_t);
         void *remote_base_addr, *remote_copy_addr;
         void *dst_addr, *src_addr;
         hsa_agent_t dst_agent, src_agent;
-        hsa_signal_t signal;
+        uct_rocm_ipc_signal_desc_t *rocm_ipc_signal;
 
         status = hsa_amd_ipc_memory_attach(&key->ipc, key->length, 0,
                                            NULL, &remote_base_addr);
@@ -90,7 +92,8 @@ ucs_status_t uct_rocm_ipc_ep_zcopy(uct_ep_h tl_ep,
                 ucs_error("fail to map local mem %p %p %d\n",
                           local_addr, base_addr, status);
                 ret = UCS_ERR_INVALID_ADDR;
-                goto out_detach;
+                hsa_amd_ipc_memory_detach(remote_base_addr);
+                goto out_unlock;
             }
         }
 
@@ -112,25 +115,27 @@ ucs_status_t uct_rocm_ipc_ep_zcopy(uct_ep_h tl_ep,
             src_agent = remote_agent;
         }
 
-        status = hsa_signal_create(1, 0, NULL, &signal);
-        assert(status == HSA_STATUS_SUCCESS);
+        rocm_ipc_signal = ucs_mpool_get(&iface->signal_pool);
 
         status = hsa_amd_memory_async_copy(dst_addr, dst_agent,
                                            src_addr, src_agent,
-                                           size, 0, NULL, signal);
+                                           size, 0, NULL,
+                                           rocm_ipc_signal->signal);
 
-        if (status == HSA_STATUS_SUCCESS)
-            while (hsa_signal_wait_acquire(signal, HSA_SIGNAL_CONDITION_LT, 1,
-                                           UINT64_MAX, HSA_WAIT_STATE_ACTIVE));
+        if (status == HSA_STATUS_SUCCESS) {
+            ret = UCS_INPROGRESS;
+        }
         else {
             ucs_error("copy error");
             ret = UCS_ERR_IO_ERROR;
+            ucs_mpool_put(rocm_ipc_signal);
+            hsa_amd_ipc_memory_detach(remote_base_addr);
+            goto out_unlock;
         }
 
-        hsa_signal_destroy(signal);
-
-    out_detach:
-        hsa_amd_ipc_memory_detach(remote_base_addr);
+        rocm_ipc_signal->comp = comp;
+        rocm_ipc_signal->mapped_addr = remote_base_addr;
+        ucs_queue_push(&iface->signal_queue, &rocm_ipc_signal->queue);
     }
     else {
         /* fallback to cma when remote buffer has no ipc */
@@ -178,7 +183,7 @@ ucs_status_t uct_rocm_ipc_ep_put_zcopy(uct_ep_h tl_ep, const uct_iov_t *iov, siz
     ucs_status_t ret;
     uct_rocm_ipc_key_t *key = (uct_rocm_ipc_key_t *)rkey;
 
-    ret = uct_rocm_ipc_ep_zcopy(tl_ep, remote_addr, iov, key, 1);
+    ret = uct_rocm_ipc_ep_zcopy(tl_ep, remote_addr, iov, key, comp, 1);
 
     UCT_TL_EP_STAT_OP(ucs_derived_of(tl_ep, uct_base_ep_t), PUT, ZCOPY,
                       uct_iov_total_length(iov, iovcnt));
@@ -195,7 +200,7 @@ ucs_status_t uct_rocm_ipc_ep_get_zcopy(uct_ep_h tl_ep, const uct_iov_t *iov, siz
     ucs_status_t ret;
     uct_rocm_ipc_key_t *key = (uct_rocm_ipc_key_t *)rkey;
 
-    ret = uct_rocm_ipc_ep_zcopy(tl_ep, remote_addr, iov, key, 0);
+    ret = uct_rocm_ipc_ep_zcopy(tl_ep, remote_addr, iov, key, comp, 0);
 
     UCT_TL_EP_STAT_OP(ucs_derived_of(tl_ep, uct_base_ep_t), GET, ZCOPY,
                       uct_iov_total_length(iov, iovcnt));
