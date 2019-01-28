@@ -7,6 +7,7 @@
 #include "rocm_ipc_md.h"
 #include "rocm_ipc_ep.h"
 
+#include <ucs/arch/cpu.h>
 #include <ucs/type/class.h>
 #include <ucs/sys/string.h>
 
@@ -88,6 +89,62 @@ static ucs_status_t uct_rocm_ipc_iface_query(uct_iface_h tl_iface,
 
 static UCS_CLASS_DECLARE_DELETE_FUNC(uct_rocm_ipc_iface_t, uct_iface_t);
 
+static ucs_status_t
+uct_rocm_ipc_iface_flush(uct_iface_h tl_iface, unsigned flags,
+                         uct_completion_t *comp)
+{
+    uct_rocm_ipc_iface_t *iface = ucs_derived_of(tl_iface, uct_rocm_ipc_iface_t);
+
+    if (comp != NULL) {
+        return UCS_ERR_UNSUPPORTED;
+    }
+
+    if (ucs_queue_is_empty(&iface->signal_queue)) {
+        UCT_TL_IFACE_STAT_FLUSH(ucs_derived_of(tl_iface, uct_base_iface_t));
+        return UCS_OK;
+    }
+
+    UCT_TL_IFACE_STAT_FLUSH_WAIT(ucs_derived_of(tl_iface, uct_base_iface_t));
+    return UCS_INPROGRESS;
+}
+
+static unsigned uct_rocm_ipc_iface_progress(uct_iface_h tl_iface)
+{
+    uct_rocm_ipc_iface_t *iface = ucs_derived_of(tl_iface, uct_rocm_ipc_iface_t);
+    static const unsigned max_signals = 16;
+    unsigned count = 0;
+    uct_rocm_ipc_signal_desc_t *rocm_ipc_signal;
+    ucs_queue_iter_t iter;
+    hsa_status_t status;
+
+    ucs_queue_for_each_safe(rocm_ipc_signal, iter, &iface->signal_queue, queue) {
+        hsa_signal_value_t v = hsa_signal_load_relaxed(rocm_ipc_signal->signal);
+        if (v) {
+            continue;
+        }
+
+        ucs_queue_del_iter(&iface->signal_queue, iter);
+        if (rocm_ipc_signal->comp != NULL) {
+            uct_invoke_completion(rocm_ipc_signal->comp, UCS_OK);
+        }
+
+        status = hsa_amd_ipc_memory_detach(rocm_ipc_signal->mapped_addr);
+        if (status != HSA_STATUS_SUCCESS) {
+            ucs_fatal("failed to unmap addr:%p", rocm_ipc_signal->mapped_addr);
+        }
+
+        ucs_trace_poll("ROCM_IPC Signal Done :%p", rocm_ipc_signal);
+        ucs_mpool_put(rocm_ipc_signal);
+        count++;
+
+        if (count >= max_signals) {
+            break;
+        }
+    }
+
+    return count;
+}
+
 static uct_iface_ops_t uct_rocm_ipc_iface_ops = {
     .ep_put_zcopy             = uct_rocm_ipc_ep_put_zcopy,
     .ep_get_zcopy             = uct_rocm_ipc_ep_get_zcopy,
@@ -97,11 +154,11 @@ static uct_iface_ops_t uct_rocm_ipc_iface_ops = {
     .ep_fence                 = uct_base_ep_fence,
     .ep_create_connected      = UCS_CLASS_NEW_FUNC_NAME(uct_rocm_ipc_ep_t),
     .ep_destroy               = UCS_CLASS_DELETE_FUNC_NAME(uct_rocm_ipc_ep_t),
-    .iface_flush              = uct_base_iface_flush,
+    .iface_flush              = uct_rocm_ipc_iface_flush,
     .iface_fence              = uct_base_iface_fence,
-    .iface_progress_enable    = ucs_empty_function,
-    .iface_progress_disable   = ucs_empty_function,
-    .iface_progress           = ucs_empty_function_return_zero,
+    .iface_progress_enable    = uct_base_iface_progress_enable,
+    .iface_progress_disable   = uct_base_iface_progress_disable,
+    .iface_progress           = uct_rocm_ipc_iface_progress,
     .iface_close              = UCS_CLASS_DELETE_FUNC_NAME(uct_rocm_ipc_iface_t),
     .iface_query              = uct_rocm_ipc_iface_query,
     .iface_get_address        = uct_rocm_ipc_iface_get_address,
@@ -109,13 +166,61 @@ static uct_iface_ops_t uct_rocm_ipc_iface_ops = {
     .iface_is_reachable       = uct_rocm_ipc_iface_is_reachable
 };
 
+static void uct_rocm_ipc_signal_desc_init(ucs_mpool_t *mp, void *obj, void *chunk)
+{
+    uct_rocm_ipc_signal_desc_t *base = (uct_rocm_ipc_signal_desc_t *)obj;
+    hsa_status_t status;
+
+    memset(base, 0, sizeof(*base));
+    status = hsa_signal_create(1, 0, NULL, &base->signal);
+    if (status != HSA_STATUS_SUCCESS) {
+        ucs_fatal("fail to create signal");
+    }
+}
+
+static void uct_rocm_ipc_signal_desc_cleanup(ucs_mpool_t *mp, void *obj)
+{
+    uct_rocm_ipc_signal_desc_t *base = (uct_rocm_ipc_signal_desc_t *)obj;
+    hsa_status_t status;
+
+    status = hsa_signal_destroy(base->signal);
+    if (status != HSA_STATUS_SUCCESS) {
+        ucs_fatal("fail to destroy signal");
+    }
+}
+
+static ucs_mpool_ops_t uct_rocm_ipc_signal_desc_mpool_ops = {
+    .chunk_alloc   = ucs_mpool_chunk_malloc,
+    .chunk_release = ucs_mpool_chunk_free,
+    .obj_init      = uct_rocm_ipc_signal_desc_init,
+    .obj_cleanup   = uct_rocm_ipc_signal_desc_cleanup,
+};
+
 static UCS_CLASS_INIT_FUNC(uct_rocm_ipc_iface_t, uct_md_h md, uct_worker_h worker,
                            const uct_iface_params_t *params,
                            const uct_iface_config_t *tl_config)
 {
+    ucs_status_t status;
+
     UCS_CLASS_CALL_SUPER_INIT(uct_base_iface_t, &uct_rocm_ipc_iface_ops, md, worker,
                               params, tl_config UCS_STATS_ARG(params->stats_root)
                               UCS_STATS_ARG(UCT_ROCM_IPC_TL_NAME));
+
+    status = ucs_mpool_init(&self->signal_pool,
+                            0,
+                            sizeof(uct_rocm_ipc_signal_desc_t),
+                            0,
+                            UCS_SYS_CACHE_LINE_SIZE,
+                            128,
+                            1024,
+                            &uct_rocm_ipc_signal_desc_mpool_ops,
+                            "ROCM_IPC signal objects");
+    if (status != UCS_OK) {
+        ucs_error("rocm/ipc signal mpool creation failed");
+        return status;
+    }
+
+    ucs_queue_head_init(&self->signal_queue);
 
     return UCS_OK;
 }
@@ -123,7 +228,9 @@ static UCS_CLASS_INIT_FUNC(uct_rocm_ipc_iface_t, uct_md_h md, uct_worker_h worke
 
 static UCS_CLASS_CLEANUP_FUNC(uct_rocm_ipc_iface_t)
 {
-
+    uct_base_iface_progress_disable(&self->super.super,
+                                    UCT_PROGRESS_SEND | UCT_PROGRESS_RECV);
+    ucs_mpool_cleanup(&self->signal_pool, 1);
 }
 
 UCS_CLASS_DEFINE(uct_rocm_ipc_iface_t, uct_base_iface_t);
