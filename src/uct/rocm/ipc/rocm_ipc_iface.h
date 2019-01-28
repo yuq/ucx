@@ -9,10 +9,21 @@
 
 #include <uct/base/uct_iface.h>
 
+#include <hsa.h>
+
 #define UCT_ROCM_IPC_TL_NAME "rocm_ipc"
+
+typedef struct uct_rocm_ipc_signal_desc {
+    hsa_signal_t signal;
+    void *mapped_addr;
+    uct_completion_t *comp;
+    ucs_queue_elem_t queue;
+} uct_rocm_ipc_signal_desc_t;
 
 typedef struct uct_rocm_ipc_iface {
     uct_base_iface_t super;
+    ucs_mpool_t signal_pool;
+    ucs_queue_head_t signal_queue;
 } uct_rocm_ipc_iface_t;
 
 typedef struct uct_rocm_ipc_iface_config {
