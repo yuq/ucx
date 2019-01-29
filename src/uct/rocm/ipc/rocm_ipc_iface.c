@@ -57,13 +57,13 @@ static ucs_status_t uct_rocm_ipc_iface_query(uct_iface_h tl_iface,
     memset(iface_attr, 0, sizeof(uct_iface_attr_t));
 
     iface_attr->cap.put.min_zcopy       = 0;
-    iface_attr->cap.put.max_zcopy       = (1 << 30);
+    iface_attr->cap.put.max_zcopy       = SIZE_MAX;
     iface_attr->cap.put.opt_zcopy_align = sizeof(uint32_t);
     iface_attr->cap.put.align_mtu       = iface_attr->cap.put.opt_zcopy_align;
     iface_attr->cap.put.max_iov         = 1;
 
     iface_attr->cap.get.min_zcopy       = 0;
-    iface_attr->cap.get.max_zcopy       = (1 << 30);
+    iface_attr->cap.get.max_zcopy       = SIZE_MAX;
     iface_attr->cap.get.opt_zcopy_align = sizeof(uint32_t);
     iface_attr->cap.get.align_mtu       = iface_attr->cap.get.opt_zcopy_align;
     iface_attr->cap.get.max_iov         = 1;
@@ -114,22 +114,15 @@ static unsigned uct_rocm_ipc_iface_progress(uct_iface_h tl_iface)
     unsigned count = 0;
     uct_rocm_ipc_signal_desc_t *rocm_ipc_signal;
     ucs_queue_iter_t iter;
-    hsa_status_t status;
 
     ucs_queue_for_each_safe(rocm_ipc_signal, iter, &iface->signal_queue, queue) {
-        hsa_signal_value_t v = hsa_signal_load_relaxed(rocm_ipc_signal->signal);
-        if (v) {
+        if (hsa_signal_load_scacquire(rocm_ipc_signal->signal) == 0) {
             continue;
         }
 
         ucs_queue_del_iter(&iface->signal_queue, iter);
         if (rocm_ipc_signal->comp != NULL) {
             uct_invoke_completion(rocm_ipc_signal->comp, UCS_OK);
-        }
-
-        status = hsa_amd_ipc_memory_detach(rocm_ipc_signal->mapped_addr);
-        if (status != HSA_STATUS_SUCCESS) {
-            ucs_fatal("failed to unmap addr:%p", rocm_ipc_signal->mapped_addr);
         }
 
         ucs_trace_poll("ROCM_IPC Signal Done :%p", rocm_ipc_signal);
