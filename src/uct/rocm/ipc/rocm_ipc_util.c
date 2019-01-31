@@ -110,7 +110,8 @@ int uct_rocm_ipc_is_gpu_agent(hsa_agent_t agent)
 }
 
 hsa_status_t uct_rocm_ipc_lock_ptr(void *ptr, size_t size, void **lock_ptr,
-                                   void **base_ptr, hsa_agent_t *agent)
+                                   void **base_ptr, size_t *base_size,
+                                   hsa_agent_t *agent)
 {
     hsa_status_t status;
     hsa_amd_pointer_info_t info;
@@ -129,6 +130,8 @@ hsa_status_t uct_rocm_ipc_lock_ptr(void *ptr, size_t size, void **lock_ptr,
         *lock_ptr = NULL;
         if (base_ptr)
             *base_ptr = info.agentBaseAddress;
+        if (base_size)
+            *base_size = info.sizeInBytes;
         return HSA_STATUS_SUCCESS;
     }
 
@@ -144,9 +147,10 @@ hsa_status_t uct_rocm_ipc_pack_key(void *address, size_t length,
 {
     hsa_status_t status;
     hsa_agent_t agent;
-    void *lock_ptr;
+    void *lock_ptr, *base_ptr = NULL;
+    size_t size = 0;
 
-    status = uct_rocm_ipc_lock_ptr(address, length, &lock_ptr, NULL, &agent);
+    status = uct_rocm_ipc_lock_ptr(address, length, &lock_ptr, &base_ptr, &size, &agent);
     if (status != HSA_STATUS_SUCCESS)
         return status;
 
@@ -159,7 +163,10 @@ hsa_status_t uct_rocm_ipc_pack_key(void *address, size_t length,
     if (lock_ptr)
         return HSA_STATUS_SUCCESS;
 
-    status = hsa_amd_ipc_memory_create(address, length, &key->ipc);
+    key->address = (uintptr_t)base_ptr;
+    key->length = size;
+
+    status = hsa_amd_ipc_memory_create(base_ptr, size, &key->ipc);
     if (status != HSA_STATUS_SUCCESS) {
         ucs_error("Failed to create ipc for %p", address);
         return status;
