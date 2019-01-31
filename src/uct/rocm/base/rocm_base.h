@@ -15,6 +15,7 @@ int uct_rocm_base_is_gpu_agent(hsa_agent_t agent);
 int uct_rocm_base_get_gpu_agents(hsa_agent_t **agents);
 int uct_rocm_base_get_dev_num(hsa_agent_t agent);
 hsa_status_t uct_rocm_base_lock_ptr(void *ptr, size_t size, void **lock_ptr,
-                                    void **base_ptr, hsa_agent_t *agent);
+                                    void **base_ptr, size_t *base_size,
+                                    hsa_agent_t *agent);
 
 #endif
