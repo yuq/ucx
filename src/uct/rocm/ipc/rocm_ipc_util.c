@@ -158,6 +158,7 @@ hsa_status_t uct_rocm_ipc_pack_key(void *address, size_t length,
     key->lock_address = (uintptr_t)lock_ptr;
     key->length = length;
     key->dev_num = uct_rocm_ipc_get_dev_num(agent);
+    key->ipc_valid = 0;
 
     /* IPC does not support locked ptr yet */
     if (lock_ptr)
@@ -173,7 +174,6 @@ hsa_status_t uct_rocm_ipc_pack_key(void *address, size_t length,
         static int once = 1;
         /* when HSA_USERPTR_FOR_PAGED_MEM=1, system bo is allocated with
          * userptr mem, but type is still HSA_EXT_POINTER_TYPE_HSA */
-        key->ipc_valid = 0;
         if (once) {
             ucs_warn("Failed to create ipc for %p, fallback to CMA for P2D", address);
             once = 0;
