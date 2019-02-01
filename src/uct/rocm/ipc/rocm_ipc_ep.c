@@ -68,7 +68,7 @@ ucs_status_t uct_rocm_ipc_ep_zcopy(uct_ep_h tl_ep,
 
     local_addr = lock_addr ? lock_addr : iov->buffer;
 
-    if (!key->lock_address) {
+    if (key->ipc_valid) {
         void *remote_base_addr, *remote_copy_addr;
         void *dst_addr, *src_addr;
         hsa_agent_t dst_agent, src_agent;
