@@ -66,7 +66,7 @@ ucs_status_t uct_rocm_ipc_ep_zcopy(uct_ep_h tl_ep,
 
     local_addr = lock_addr ? lock_addr : iov->buffer;
 
-    if (!key->lock_address) {
+    if (key->ipc_valid) {
         void *remote_base_addr, *remote_copy_addr;
         void *dst_addr, *src_addr;
         hsa_agent_t dst_agent, src_agent;
@@ -155,7 +155,8 @@ ucs_status_t uct_rocm_ipc_ep_zcopy(uct_ep_h tl_ep,
                                              &remote_mem, 1, &copied);
 
         if (hsa_status != HSAKMT_STATUS_SUCCESS) {
-            ucs_error("cma copy fail %d %d", hsa_status, errno);
+            ucs_error("cma copy fail %d %d %d %p %p %lu",
+                      hsa_status, errno, is_put, remote_copy_addr, local_addr, size);
             ret = UCS_ERR_IO_ERROR;
         }
         else
