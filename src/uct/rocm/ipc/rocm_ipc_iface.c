@@ -117,7 +117,7 @@ static unsigned uct_rocm_ipc_iface_progress(uct_iface_h tl_iface)
     ucs_queue_iter_t iter;
 
     ucs_queue_for_each_safe(rocm_ipc_signal, iter, &iface->signal_queue, queue) {
-        if (hsa_signal_load_scacquire(rocm_ipc_signal->signal) == 0) {
+        if (hsa_signal_load_scacquire(rocm_ipc_signal->signal) != 0) {
             continue;
         }
 
