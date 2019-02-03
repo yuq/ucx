@@ -12,6 +12,7 @@
 
 hsa_status_t uct_rocm_base_init(void);
 hsa_agent_t uct_rocm_base_get_dev_agent(int dev_num);
+hsa_agent_t uct_rocm_base_get_gpu_agent(int gpu_num);
 int uct_rocm_base_is_gpu_agent(hsa_agent_t agent);
 int uct_rocm_base_get_gpu_agents(hsa_agent_t **agents);
 int uct_rocm_base_get_dev_num(hsa_agent_t agent);

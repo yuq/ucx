@@ -127,6 +127,12 @@ ucs_status_t uct_rocm_ipc_ep_zcopy(uct_ep_h tl_ep,
         rocm_ipc_signal = ucs_mpool_get(&iface->signal_pool);
         hsa_signal_store_screlease(rocm_ipc_signal->signal, 1);
 
+        /* for CPU to CPU copy, use GPU DMA */
+        if (!uct_rocm_base_is_gpu_agent(dst_agent) &&
+            !uct_rocm_base_is_gpu_agent(src_agent)) {
+            src_agent = uct_rocm_base_get_gpu_agent(0);
+        }
+
         status = hsa_amd_memory_async_copy(dst_addr, dst_agent,
                                            src_addr, src_agent,
                                            size, 0, NULL,
