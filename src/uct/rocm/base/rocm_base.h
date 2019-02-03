@@ -7,6 +7,7 @@
 #ifndef ROCM_BASE_H
 #define ROCM_BASE_H
 
+#include <uct/base/uct_md.h>
 #include <hsa.h>
 
 hsa_status_t uct_rocm_base_init(void);
