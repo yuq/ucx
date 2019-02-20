@@ -89,12 +89,6 @@ hsa_agent_t uct_rocm_base_get_dev_agent(int dev_num)
     return uct_rocm_base_agents.agents[dev_num];
 }
 
-hsa_agent_t uct_rocm_base_get_gpu_agent(int gpu_num)
-{
-    assert(gpu_num < uct_rocm_base_agents.num_gpu);
-    return uct_rocm_base_agents.gpu_agents[gpu_num];
-}
-
 int uct_rocm_base_get_dev_num(hsa_agent_t agent)
 {
     int i;
