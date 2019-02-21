@@ -27,7 +27,7 @@ static ucs_config_field_t uct_rocm_copy_md_config_table[] = {
 static ucs_status_t uct_rocm_copy_md_query(uct_md_h md, uct_md_attr_t *md_attr)
 {
     md_attr->cap.flags         = UCT_MD_FLAG_REG;
-    md_attr->cap.reg_mem_types = UCS_BIT(UCT_MD_MEM_TYPE_HOST);
+    md_attr->cap.reg_mem_types = UCS_BIT(UCT_MD_MEM_TYPE_ROCM);
     md_attr->cap.mem_type      = UCT_MD_MEM_TYPE_ROCM;
     md_attr->cap.max_alloc     = 0;
     md_attr->cap.max_reg       = ULONG_MAX;
@@ -62,50 +62,18 @@ static ucs_status_t uct_rocm_copy_rkey_release(uct_md_component_t *mdc, uct_rkey
 static ucs_status_t uct_rocm_copy_mem_reg(uct_md_h md, void *address, size_t length,
                                           unsigned flags, uct_mem_h *memh_p)
 {
-    hsa_status_t status;
-    void *lock_addr;
-
-    if(address == NULL) {
-        *memh_p = address;
-        return UCS_OK;
-    }
-
-    status = hsa_amd_memory_lock(address, length, NULL, 0, &lock_addr);
-    if (status != HSA_STATUS_SUCCESS) {
-        return UCS_ERR_IO_ERROR;
-    }
-
     *memh_p = address;
     return UCS_OK;
 }
 
 static ucs_status_t uct_rocm_copy_mem_dereg(uct_md_h md, uct_mem_h memh)
 {
-    void *address = (void *)memh;
-    hsa_status_t status;
-
-    if (address == NULL) {
-        return UCS_OK;
-    }
-
-    status = hsa_amd_memory_unlock(address);
-    if (status != HSA_STATUS_SUCCESS) {
-        return UCS_ERR_IO_ERROR;
-    }
-
     return UCS_OK;
 }
 
 static ucs_status_t uct_rocm_copy_query_md_resources(uct_md_resource_desc_t **resources_p,
                                                      unsigned *num_resources_p)
 {
-    if (uct_rocm_base_init() != HSA_STATUS_SUCCESS) {
-        ucs_error("Could not initialize ROCm support");
-        *resources_p     = NULL;
-        *num_resources_p = 0;
-        return UCS_OK;
-    }
-
     return uct_single_md_resource(&uct_rocm_copy_md_component, resources_p,
                                   num_resources_p);
 }

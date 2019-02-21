@@ -52,15 +52,12 @@ static ucs_status_t uct_rocm_copy_iface_query(uct_iface_h iface,
     iface_attr->ep_addr_len             = 0;
     iface_attr->cap.flags               = UCT_IFACE_FLAG_CONNECT_TO_IFACE |
                                           UCT_IFACE_FLAG_GET_SHORT |
-                                          UCT_IFACE_FLAG_PUT_SHORT |
-                                          UCT_IFACE_FLAG_GET_ZCOPY |
-                                          UCT_IFACE_FLAG_PUT_ZCOPY |
-                                          UCT_IFACE_FLAG_PENDING;
+                                          UCT_IFACE_FLAG_PUT_SHORT;
 
     iface_attr->cap.put.max_short       = UINT_MAX;
     iface_attr->cap.put.max_bcopy       = 0;
     iface_attr->cap.put.min_zcopy       = 0;
-    iface_attr->cap.put.max_zcopy       = SIZE_MAX;
+    iface_attr->cap.put.max_zcopy       = 0;
     iface_attr->cap.put.opt_zcopy_align = 1;
     iface_attr->cap.put.align_mtu       = iface_attr->cap.put.opt_zcopy_align;
     iface_attr->cap.put.max_iov         = 1;
@@ -68,7 +65,7 @@ static ucs_status_t uct_rocm_copy_iface_query(uct_iface_h iface,
     iface_attr->cap.get.max_short       = UINT_MAX;
     iface_attr->cap.get.max_bcopy       = 0;
     iface_attr->cap.get.min_zcopy       = 0;
-    iface_attr->cap.get.max_zcopy       = SIZE_MAX;
+    iface_attr->cap.get.max_zcopy       = 0;
     iface_attr->cap.get.opt_zcopy_align = 1;
     iface_attr->cap.get.align_mtu       = iface_attr->cap.get.opt_zcopy_align;
     iface_attr->cap.get.max_iov         = 1;
@@ -82,7 +79,7 @@ static ucs_status_t uct_rocm_copy_iface_query(uct_iface_h iface,
     iface_attr->cap.am.max_hdr          = 0;
     iface_attr->cap.am.max_iov          = 1;
 
-    iface_attr->latency.overhead        = 10e-6; /* 10 us */
+    iface_attr->latency.overhead        = 1e-6; /* 1 us */
     iface_attr->latency.growth          = 0;
     iface_attr->bandwidth               = 6911 * 1024.0 * 1024.0;
     iface_attr->overhead                = 0;
@@ -94,8 +91,6 @@ static ucs_status_t uct_rocm_copy_iface_query(uct_iface_h iface,
 static uct_iface_ops_t uct_rocm_copy_iface_ops = {
     .ep_get_short             = uct_rocm_copy_ep_get_short,
     .ep_put_short             = uct_rocm_copy_ep_put_short,
-    .ep_get_zcopy             = uct_rocm_copy_ep_get_zcopy,
-    .ep_put_zcopy             = uct_rocm_copy_ep_put_zcopy,
     .ep_pending_add           = ucs_empty_function_return_busy,
     .ep_pending_purge         = ucs_empty_function,
     .ep_flush                 = uct_base_ep_flush,

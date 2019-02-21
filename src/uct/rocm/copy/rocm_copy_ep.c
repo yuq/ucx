@@ -10,6 +10,10 @@
 #include <ucs/debug/memtrack.h>
 #include <ucs/type/class.h>
 
+#ifdef USE_GDR_COPY
+#include <gdrapi.h>
+#endif
+
 static UCS_CLASS_INIT_FUNC(uct_rocm_copy_ep_t, uct_iface_t *tl_iface,
                            const uct_device_addr_t *dev_addr,
                            const uct_iface_addr_t *iface_addr)
@@ -34,63 +38,23 @@ UCS_CLASS_DEFINE_DELETE_FUNC(uct_rocm_copy_ep_t, uct_ep_t);
      ucs_trace_data(_fmt " to %"PRIx64"(%+ld)", ## __VA_ARGS__, (_remote_addr), \
                     (_rkey))
 
-static UCS_F_ALWAYS_INLINE ucs_status_t
-uct_rocm_copy_ep_zcopy(uct_ep_h tl_ep,
-                                   uint64_t remote_addr,
-                                   const uct_iov_t *iov,
-                                   int is_put)
-{
-    size_t size = uct_iov_get_length(iov);
-
-    if (!size) {
-        return UCS_OK;
-    }
-
-    if (is_put)
-        memcpy((void *)remote_addr, iov->buffer, size);
-    else
-        memcpy(iov->buffer, (void *)remote_addr, size);
-
-    return UCS_OK;
-}
-
-ucs_status_t uct_rocm_copy_ep_get_zcopy(uct_ep_h tl_ep, const uct_iov_t *iov, size_t iovcnt,
-                                        uint64_t remote_addr, uct_rkey_t rkey,
-                                        uct_completion_t *comp)
-{
-    ucs_status_t status;
-
-    status = uct_rocm_copy_ep_zcopy(tl_ep, remote_addr, iov, 0);
-
-    UCT_TL_EP_STAT_OP(ucs_derived_of(tl_ep, uct_base_ep_t), GET, ZCOPY,
-                      uct_iov_total_length(iov, iovcnt));
-    uct_rocm_copy_trace_data(remote_addr, rkey, "GET_ZCOPY [length %zu]",
-                             uct_iov_total_length(iov, iovcnt));
-    return status;
-}
-
-ucs_status_t uct_rocm_copy_ep_put_zcopy(uct_ep_h tl_ep, const uct_iov_t *iov, size_t iovcnt,
-                                        uint64_t remote_addr, uct_rkey_t rkey,
-                                        uct_completion_t *comp)
-{
-    ucs_status_t status;
-
-    status = uct_rocm_copy_ep_zcopy(tl_ep, remote_addr, iov, 1);
-
-    UCT_TL_EP_STAT_OP(ucs_derived_of(tl_ep, uct_base_ep_t), PUT, ZCOPY,
-                      uct_iov_total_length(iov, iovcnt));
-    uct_rocm_copy_trace_data(remote_addr, rkey, "GET_ZCOPY [length %zu]",
-                             uct_iov_total_length(iov, iovcnt));
-    return status;
-
-}
-
-
 ucs_status_t uct_rocm_copy_ep_put_short(uct_ep_h tl_ep, const void *buffer,
                                         unsigned length, uint64_t remote_addr,
                                         uct_rkey_t rkey)
 {
+#ifdef USE_GDR_COPY
+    int ret;
+
+    if (ucs_likely(length)) {
+        ret = gdr_copy_to_bar((void *)remote_addr, buffer, length);
+        if (ret) {
+            ucs_error("gdr_copy_to_bar failed. ret:%d", ret);
+            return UCS_ERR_IO_ERROR;
+        }
+    }
+#else
     memcpy((void *)remote_addr, buffer, length);
+#endif
 
     UCT_TL_EP_STAT_OP(ucs_derived_of(tl_ep, uct_base_ep_t), PUT, SHORT, length);
     ucs_trace_data("PUT_SHORT size %d from %p to %p",
@@ -102,8 +66,19 @@ ucs_status_t uct_rocm_copy_ep_get_short(uct_ep_h tl_ep, void *buffer,
                                         unsigned length, uint64_t remote_addr,
                                         uct_rkey_t rkey)
 {
-    /* device to host */
+#ifdef USE_GDR_COPY
+    int ret;
+
+    if (ucs_likely(length)) {
+        ret = gdr_copy_from_bar(buffer, (void *)remote_addr, length);
+        if (ret) {
+            ucs_error("gdr_copy_from_bar failed. ret:%d", ret);
+            return UCS_ERR_IO_ERROR;
+        }
+    }
+#else
     memcpy(buffer, (void *)remote_addr, length);
+#endif
 
     UCT_TL_EP_STAT_OP(ucs_derived_of(tl_ep, uct_base_ep_t), GET, SHORT, length);
     ucs_trace_data("GET_SHORT size %d from %p to %p",
