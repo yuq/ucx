@@ -26,6 +26,9 @@
 #include "ucm/cuda/cudamem.h"
 #endif
 
+#if HAVE_ROCM
+#include "ucm/rocm/rocmmem.h"
+#endif
 
 #define MAP_FAILED ((void*)-1)
 
@@ -83,6 +86,21 @@ UCM_OVERRIDE_FUNC(cudaMallocManaged,         cudaError_t)
 UCM_OVERRIDE_FUNC(cudaMallocPitch,           cudaError_t)
 UCM_OVERRIDE_FUNC(cudaHostGetDevicePointer,  cudaError_t)
 UCM_OVERRIDE_FUNC(cudaHostUnregister,        cudaError_t)
+#endif
+
+#endif
+
+#if HAVE_ROCM
+
+UCM_DEFINE_REPLACE_DLSYM_FUNC(hsa_amd_memory_pool_allocate, hsa_status_t,
+                              HSA_STATUS_ERROR, hsa_amd_memory_pool_t,
+                              size_t, uint32_t, void**)
+UCM_DEFINE_REPLACE_DLSYM_FUNC(hsa_amd_memory_pool_free, hsa_status_t,
+                              HSA_STATUS_ERROR, void*)
+
+#if ENABLE_SYMBOL_OVERRIDE
+UCM_OVERRIDE_FUNC(hsa_amd_memory_pool_allocate, hsa_status_t)
+UCM_OVERRIDE_FUNC(hsa_amd_memory_pool_free, hsa_status_t)
 #endif
 
 #endif

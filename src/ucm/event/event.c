@@ -16,6 +16,9 @@
 #if HAVE_CUDA
 #include <ucm/cuda/cudamem.h>
 #endif
+#if HAVE_ROCM
+#include <ucm/rocm/rocmmem.h>
+#endif
 #include <ucm/util/log.h>
 #include <ucm/util/sys.h>
 #include <ucs/arch/cpu.h>
@@ -461,7 +464,7 @@ int ucm_madvise(void *addr, size_t length, int advice)
 }
 
 
-#if HAVE_CUDA
+#if HAVE_CUDA || HAVE_ROCM
 static UCS_F_ALWAYS_INLINE void
 ucm_dispatch_mem_type_alloc(void *addr, size_t length, ucm_mem_type_t mem_type)
 {
@@ -483,7 +486,9 @@ ucm_dispatch_mem_type_free(void *addr, size_t length, ucm_mem_type_t mem_type)
     event.mem_type.mem_type = mem_type;
     ucm_event_dispatch(UCM_EVENT_MEM_TYPE_FREE, &event);
 }
+#endif
 
+#if HAVE_CUDA
 static void ucm_cudafree_dispatch_events(void *dptr)
 {
     CUresult ret;
@@ -734,6 +739,67 @@ cudaError_t ucm_cudaHostUnregister(void *ptr)
 
 #endif
 
+#if HAVE_ROCM
+static void ucm_hsa_amd_memory_pool_free_dispatch_events(void *ptr)
+{
+    size_t size;
+    hsa_status_t status;
+    hsa_amd_pointer_info_t info = {
+        .size = sizeof(hsa_amd_pointer_info_t),
+    };
+
+    if (ptr == NULL) {
+        return;
+    }
+
+    status = hsa_amd_pointer_info(ptr, &info, NULL, NULL, NULL);
+    if (status != HSA_STATUS_SUCCESS) {
+        ucm_warn("hsa_amd_pointer_info(dptr=%p) failed", ptr);
+        size = 1; /* set minimum length */
+    }
+    else {
+        size = info.sizeInBytes;
+    }
+
+    ucm_dispatch_mem_type_free(ptr, size, UCM_MEM_TYPE_ROCM);
+}
+
+hsa_status_t ucm_hsa_amd_memory_pool_free(void* ptr)
+{
+    hsa_status_t status;
+
+    ucm_event_enter();
+
+    ucm_trace("ucm_hsa_amd_memory_pool_free(ptr=%p)", ptr);
+
+    ucm_hsa_amd_memory_pool_free_dispatch_events(ptr);
+
+    status = ucm_orig_hsa_amd_memory_pool_free(ptr);
+
+    ucm_event_leave();
+    return status;
+}
+
+hsa_status_t ucm_hsa_amd_memory_pool_allocate(
+    hsa_amd_memory_pool_t memory_pool, size_t size,
+    uint32_t flags, void** ptr)
+{
+    hsa_status_t status;
+
+    ucm_event_enter();
+
+    status = ucm_orig_hsa_amd_memory_pool_allocate(memory_pool, size, flags, ptr);
+    if (status == HSA_STATUS_SUCCESS) {
+        ucm_trace("ucm_hsa_amd_memory_pool_allocate(ptr=%p size:%lu)", *ptr, size);
+        ucm_dispatch_mem_type_alloc(*ptr, size, UCM_MEM_TYPE_ROCM);
+    }
+
+    ucm_event_leave();
+    return status;
+}
+
+#endif
+
 void ucm_event_handler_add(ucm_event_handler_t *handler)
 {
     ucm_event_handler_t *elem;
@@ -803,6 +869,14 @@ static ucs_status_t ucm_event_install(int events)
             goto out_unlock;
         }
         ucm_debug("cudaFree hooks are ready");
+    }
+#endif
+
+#if HAVE_ROCM
+    if (events & (UCM_EVENT_MEM_TYPE_ALLOC | UCM_EVENT_MEM_TYPE_FREE)) {
+        status = ucm_rocmmem_install();
+        if (status != UCS_OK)
+            goto out_unlock;
     }
 #endif
 
