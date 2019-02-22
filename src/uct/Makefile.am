@@ -62,6 +62,21 @@ if HAVE_ROCM
 libuct_la_CPPFLAGS += $(ROCM_CPPFLAGS)
 libuct_la_LDFLAGS +=  $(ROCM_LDFLAGS) $(ROCM_LIBS)
 
+if HAVE_GDR_COPY
+libuct_la_CPPFLAGS += $(GDR_COPY_CPPFLAGS)
+libuct_la_LDFLAGS  += $(GDR_COPY_LDFLAGS)
+
+noinst_HEADERS += \
+    rocm/gdr/rocm_gdr_md.h \
+    rocm/gdr/rocm_gdr_iface.h \
+    rocm/gdr/rocm_gdr_ep.h
+
+libuct_la_SOURCES += \
+    rocm/gdr/rocm_gdr_md.c \
+    rocm/gdr/rocm_gdr_iface.c \
+    rocm/gdr/rocm_gdr_ep.c
+endif
+
 noinst_HEADERS += \
     rocm/cma/rocm_cma_md.h \
     rocm/cma/rocm_cma_iface.h \
