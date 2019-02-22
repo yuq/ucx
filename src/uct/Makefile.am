@@ -262,11 +262,6 @@ if HAVE_ROCM
 libuct_la_CPPFLAGS += $(ROCM_CPPFLAGS)
 libuct_la_LDFLAGS +=  $(ROCM_LDFLAGS) $(ROCM_LIBS)
 
-if HAVE_GDR_COPY
-libuct_la_CPPFLAGS += $(GDR_COPY_CPPFLAGS) -DUSE_GDR_COPY
-libuct_la_LDFLAGS  += $(GDR_COPY_LDFLAGS)
-endif
-
 noinst_HEADERS += \
     rocm/cma/rocm_cma_md.h \
     rocm/cma/rocm_cma_iface.h \
