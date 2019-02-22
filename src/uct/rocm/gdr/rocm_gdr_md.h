@@ -8,7 +8,7 @@
 
 #include <uct/base/uct_md.h>
 
-#define UCT_ROCM_GDR_MD_NAME "rocm_cpy"
+#define UCT_ROCM_GDR_MD_NAME "rocm_gdr"
 
 extern uct_md_component_t uct_rocm_gdr_md_component;
 
