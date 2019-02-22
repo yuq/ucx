@@ -3,8 +3,8 @@
  * See file LICENSE for terms.
  */
 
-#ifndef UCM_CUDAMEM_H_
-#define UCM_CUDAMEM_H_
+#ifndef UCM_ROCMMEM_H_
+#define UCM_ROCMMEM_H_
 
 #include <ucm/api/ucm.h>
 #include <hsa_ext_amd.h>
@@ -21,7 +21,7 @@ hsa_status_t ucm_hsa_amd_memory_pool_allocate(
     uint32_t flags, void** ptr);
 
 /* hsa_amd_memory_pool_free */
-hsa_status_t ucm_override_hsa_memory_pool_free(void* ptr);
+hsa_status_t ucm_override_hsa_amd_memory_pool_free(void* ptr);
 hsa_status_t ucm_orig_hsa_amd_memory_pool_free(void* ptr);
 hsa_status_t ucm_hsa_amd_memory_pool_free(void* ptr);
 
