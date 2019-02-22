@@ -18,8 +18,7 @@ typedef struct uct_rocm_ipc_ep {
     uct_rocm_ipc_cache_t *remote_memh_cache;
 } uct_rocm_ipc_ep_t;
 
-UCS_CLASS_DECLARE_NEW_FUNC(uct_rocm_ipc_ep_t, uct_ep_t, uct_iface_t*,
-                           const uct_device_addr_t *, const uct_iface_addr_t *);
+UCS_CLASS_DECLARE_NEW_FUNC(uct_rocm_ipc_ep_t, uct_ep_t, const uct_ep_params_t *);
 UCS_CLASS_DECLARE_DELETE_FUNC(uct_rocm_ipc_ep_t, uct_ep_t);
 
 ucs_status_t uct_rocm_ipc_ep_put_zcopy(uct_ep_h tl_ep, const uct_iov_t *iov, size_t iovcnt,

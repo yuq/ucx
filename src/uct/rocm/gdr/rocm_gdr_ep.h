@@ -20,8 +20,7 @@ typedef struct uct_rocm_gdr_ep {
     struct uct_rocm_gdr_ep *next;
 } uct_rocm_gdr_ep_t;
 
-UCS_CLASS_DECLARE_NEW_FUNC(uct_rocm_gdr_ep_t, uct_ep_t, uct_iface_t*,
-                           const uct_device_addr_t *, const uct_iface_addr_t *);
+UCS_CLASS_DECLARE_NEW_FUNC(uct_rocm_gdr_ep_t, uct_ep_t, const uct_ep_params_t *);
 UCS_CLASS_DECLARE_DELETE_FUNC(uct_rocm_gdr_ep_t, uct_ep_t);
 
 ucs_status_t uct_rocm_gdr_ep_put_short(uct_ep_h tl_ep, const void *buffer,

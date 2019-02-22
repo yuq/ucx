@@ -20,8 +20,7 @@ typedef struct uct_rocm_copy_ep {
     struct uct_rocm_copy_ep *next;
 } uct_rocm_copy_ep_t;
 
-UCS_CLASS_DECLARE_NEW_FUNC(uct_rocm_copy_ep_t, uct_ep_t, uct_iface_t*,
-                           const uct_device_addr_t *, const uct_iface_addr_t *);
+UCS_CLASS_DECLARE_NEW_FUNC(uct_rocm_copy_ep_t, uct_ep_t, const uct_ep_params_t *);
 UCS_CLASS_DECLARE_DELETE_FUNC(uct_rocm_copy_ep_t, uct_ep_t);
 
 ucs_status_t uct_rocm_copy_ep_get_zcopy(uct_ep_h tl_ep,
