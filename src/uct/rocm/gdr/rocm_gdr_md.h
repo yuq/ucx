@@ -20,4 +20,13 @@ typedef struct uct_rocm_gdr_md_config {
     uct_md_config_t super;
 } uct_rocm_gdr_md_config_t;
 
+typedef struct uct_rocm_gdr_mem {
+    int dummy;
+} uct_rocm_gdr_mem_t;
+
+typedef struct uct_rocm_gdr_key {
+    int dummy;
+} uct_rocm_gdr_key_t;
+
+
 #endif

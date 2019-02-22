@@ -26,12 +26,13 @@ static ucs_config_field_t uct_rocm_gdr_md_config_table[] = {
 
 static ucs_status_t uct_rocm_gdr_md_query(uct_md_h md, uct_md_attr_t *md_attr)
 {
-    md_attr->cap.flags         = UCT_MD_FLAG_REG;
+    md_attr->cap.flags         = UCT_MD_FLAG_REG |
+                                 UCT_MD_FLAG_NEED_RKEY;
     md_attr->cap.reg_mem_types = UCS_BIT(UCT_MD_MEM_TYPE_ROCM);
     md_attr->cap.mem_type      = UCT_MD_MEM_TYPE_ROCM;
     md_attr->cap.max_alloc     = 0;
     md_attr->cap.max_reg       = ULONG_MAX;
-    md_attr->rkey_packed_size  = 0;
+    md_attr->rkey_packed_size  = sizeof(uct_rocm_gdr_key_t);
     md_attr->reg_cost.overhead = 0;
     md_attr->reg_cost.growth   = 0;
     memset(&md_attr->local_cpus, 0xff, sizeof(md_attr->local_cpus));
@@ -41,6 +42,9 @@ static ucs_status_t uct_rocm_gdr_md_query(uct_md_h md, uct_md_attr_t *md_attr)
 static ucs_status_t uct_rocm_gdr_mkey_pack(uct_md_h md, uct_mem_h memh,
                                            void *rkey_buffer)
 {
+    uct_rocm_gdr_key_t *packed      = (uct_rocm_gdr_key_t *)rkey_buffer;
+    //uct_rocm_gdr_mem_t *mem_hndl    = (uct_rocm_gdr_mem_t *)memh;
+    packed->dummy = 0;
     return UCS_OK;
 }
 
@@ -48,26 +52,51 @@ static ucs_status_t uct_rocm_gdr_rkey_unpack(uct_md_component_t *mdc,
                                              const void *rkey_buffer, uct_rkey_t *rkey_p,
                                              void **handle_p)
 {
-    *rkey_p   = 0xdeadbeef;
+    //uct_rocm_gdr_key_t *packed = (uct_rocm_gdr_key_t *)rkey_buffer;
+    uct_rocm_gdr_key_t *key;
+
+    key = ucs_malloc(sizeof(uct_rocm_gdr_key_t), "uct_rocm_gdr_key_t");
+    if (NULL == key) {
+        ucs_error("failed to allocate memory for uct_rocm_gdr_key_t");
+        return UCS_ERR_NO_MEMORY;
+    }
+
+    key->dummy = 0;
+
     *handle_p = NULL;
+    *rkey_p   = (uintptr_t)key;
+
     return UCS_OK;
 }
 
 static ucs_status_t uct_rocm_gdr_rkey_release(uct_md_component_t *mdc, uct_rkey_t rkey,
                                               void *handle)
 {
+    ucs_assert(NULL == handle);
+    ucs_free((void *)rkey);
     return UCS_OK;
 }
 
 static ucs_status_t uct_rocm_gdr_mem_reg(uct_md_h md, void *address, size_t length,
                                          unsigned flags, uct_mem_h *memh_p)
 {
-    *memh_p = address;
+    uct_rocm_gdr_mem_t *mem_hndl = NULL;
+
+    mem_hndl = ucs_malloc(sizeof(uct_rocm_gdr_mem_t), "rocm_gdr handle");
+    if (NULL == mem_hndl) {
+        ucs_error("failed to allocate memory for rocm_gdr_mem_t");
+        return UCS_ERR_NO_MEMORY;
+    }
+
+    *memh_p = mem_hndl;
     return UCS_OK;
 }
 
 static ucs_status_t uct_rocm_gdr_mem_dereg(uct_md_h md, uct_mem_h memh)
 {
+    uct_rocm_gdr_mem_t *mem_hndl = memh;
+
+    ucs_free(mem_hndl);
     return UCS_OK;
 }
 
