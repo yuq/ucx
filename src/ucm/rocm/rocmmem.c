@@ -31,6 +31,26 @@ UCM_OVERRIDE_FUNC(hsa_amd_memory_pool_allocate, hsa_status_t)
 UCM_OVERRIDE_FUNC(hsa_amd_memory_pool_free, hsa_status_t)
 #endif
 
+static int ucm_hsa_is_device_type_gpu_pointer(void *ptr)
+{
+    hsa_device_type_t device_type;
+    hsa_amd_pointer_info_t info = {
+        .size = sizeof(hsa_amd_pointer_info_t),
+    };
+
+    if (ptr == NULL) return 0;
+
+    if (hsa_amd_pointer_info(ptr, &info, NULL, NULL, NULL) != HSA_STATUS_SUCCESS)
+        return 0;
+
+    if (hsa_agent_get_info(info.agentOwner, HSA_AGENT_INFO_DEVICE, &device_type) != HSA_STATUS_SUCCESS)
+        return 0;
+
+    return (device_type == HSA_DEVICE_TYPE_GPU &&
+            info.type != HSA_EXT_POINTER_TYPE_UNKNOWN &&
+            info.type != HSA_EXT_POINTER_TYPE_LOCKED);
+}
+
 static UCS_F_ALWAYS_INLINE void
 ucm_dispatch_mem_type_alloc(void *addr, size_t length, ucm_mem_type_t mem_type)
 {
@@ -85,7 +105,8 @@ hsa_status_t ucm_hsa_amd_memory_pool_free(void* ptr)
 
     ucm_trace("ucm_hsa_amd_memory_pool_free(ptr=%p)", ptr);
 
-    ucm_hsa_amd_memory_pool_free_dispatch_events(ptr);
+    if (ucm_hsa_is_device_type_gpu_pointer(ptr))
+        ucm_hsa_amd_memory_pool_free_dispatch_events(ptr);
 
     status = ucm_orig_hsa_amd_memory_pool_free(ptr);
 
@@ -102,7 +123,7 @@ hsa_status_t ucm_hsa_amd_memory_pool_allocate(
     ucm_event_enter();
 
     status = ucm_orig_hsa_amd_memory_pool_allocate(memory_pool, size, flags, ptr);
-    if (status == HSA_STATUS_SUCCESS) {
+    if (status == HSA_STATUS_SUCCESS && ucm_hsa_is_device_type_gpu_pointer(*ptr)) {
         ucm_trace("ucm_hsa_amd_memory_pool_allocate(ptr=%p size:%lu)", *ptr, size);
         ucm_dispatch_mem_type_alloc(*ptr, size, UCM_MEM_TYPE_ROCM);
     }
