@@ -141,6 +141,10 @@ void test_md::alloc_memory(void **address, size_t size, char *fill_buffer, int m
         ss << "can't allocate cuda memory for " << GetParam();
         UCS_TEST_SKIP_R(ss.str());
 #endif
+    } else {
+        std::stringstream ss;
+        ss << "can't allocate memory for " << GetParam();
+        UCS_TEST_SKIP_R(ss.str());
     }
 }
 
