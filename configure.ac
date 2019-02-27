@@ -298,6 +298,7 @@ build_modules+="${uct_ib_modules}"
 build_modules+="${uct_cuda_modules}"
 build_modules+="${ucm_modules}"
 build_modules+="${ucx_perftest_modules}"
+build_modules+="${uct_rocm_modules}"
 AC_SUBST([build_modules], [${build_modules}])
 
 #
@@ -353,6 +354,7 @@ AC_MSG_NOTICE([UCX build configuration:])
 AC_MSG_NOTICE([      Multi-thread:   ${mt_enable}])
 AC_MSG_NOTICE([       UCT modules:   <$(echo $uct_modules|tr ':' ' ') >])
 AC_MSG_NOTICE([      CUDA modules:   <$(echo $uct_cuda_modules|tr ':' ' ') >])
+AC_MSG_NOTICE([      ROCM modules:   <$(echo $uct_rocm_modules|tr ':' ' ') >])
 AC_MSG_NOTICE([        IB modules:   <$(echo $uct_ib_modules|tr ':' ' ') >])
 AC_MSG_NOTICE([       UCM modules:   <$(echo $ucm_modules|tr ':' ' ') >])
 AC_MSG_NOTICE([      Perf modules:   <$(echo $ucx_perftest_modules|tr ':' ' ') >])
