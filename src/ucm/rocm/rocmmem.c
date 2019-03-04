@@ -19,6 +19,10 @@
 
 #include <unistd.h>
 #include <pthread.h>
+#include <stdlib.h>
+#include <string.h>
+
+static bool userptr_enabled = false;
 
 UCM_DEFINE_REPLACE_DLSYM_FUNC(hsa_amd_memory_pool_allocate, hsa_status_t,
                               HSA_STATUS_ERROR, hsa_amd_memory_pool_t,
@@ -74,6 +78,17 @@ static void ucm_hsa_amd_memory_pool_free_dispatch_events(void *ptr)
         size = info.sizeInBytes;
     }
 
+    if (userptr_enabled) {
+        hsa_device_type_t type;
+
+        status = hsa_agent_get_info(info.agentOwner, HSA_AGENT_INFO_DEVICE, &type);
+        if (status == HSA_STATUS_SUCCESS &&
+            (type != HSA_DEVICE_TYPE_GPU ||
+             info.type == HSA_EXT_POINTER_TYPE_UNKNOWN ||
+             info.type == HSA_EXT_POINTER_TYPE_LOCKED))
+            return;
+    }
+
     ucm_dispatch_mem_type_free(ptr, size, UCM_MEM_TYPE_ROCM);
 }
 
@@ -98,11 +113,22 @@ hsa_status_t ucm_hsa_amd_memory_pool_allocate(
     uint32_t flags, void** ptr)
 {
     hsa_status_t status;
+    bool send_event = true;
+
+    if (userptr_enabled) {
+        uint32_t flags = 0;
+
+        status = hsa_amd_memory_pool_get_info(memory_pool,
+                                              HSA_AMD_MEMORY_POOL_INFO_GLOBAL_FLAGS,
+                                              &flags);
+        if (status == HSA_STATUS_SUCCESS)
+            send_event = !!(flags & HSA_AMD_MEMORY_POOL_GLOBAL_FLAG_COARSE_GRAINED);
+    }
 
     ucm_event_enter();
 
     status = ucm_orig_hsa_amd_memory_pool_allocate(memory_pool, size, flags, ptr);
-    if (status == HSA_STATUS_SUCCESS) {
+    if (status == HSA_STATUS_SUCCESS && send_event) {
         ucm_trace("ucm_hsa_amd_memory_pool_allocate(ptr=%p size:%lu)", *ptr, size);
         ucm_dispatch_mem_type_alloc(*ptr, size, UCM_MEM_TYPE_ROCM);
     }
@@ -125,6 +151,7 @@ static ucs_status_t ucm_rocmmem_install(int events)
     static pthread_mutex_t install_mutex = PTHREAD_MUTEX_INITIALIZER;
     ucm_reloc_patch_t *patch;
     ucs_status_t status = UCS_OK;
+    char *env;
 
     if (!(events & (UCM_EVENT_MEM_TYPE_ALLOC | UCM_EVENT_MEM_TYPE_FREE))) {
         goto out;
@@ -137,6 +164,10 @@ static ucs_status_t ucm_rocmmem_install(int events)
     if (ucm_rocmmem_installed) {
         goto out_unlock;
     }
+
+    /* when userptr is enabled, GTT alloc is faked to be userptr */
+    env = getenv("HSA_USERPTR_FOR_PAGED_MEM");
+    userptr_enabled = env && strcmp(env, "0");
 
     for (patch = patches; patch->symbol != NULL; ++patch) {
         status = ucm_reloc_modify(patch);
