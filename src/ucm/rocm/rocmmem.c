@@ -61,6 +61,8 @@ static void ucm_hsa_amd_memory_pool_free_dispatch_events(void *ptr)
 {
     size_t size;
     hsa_status_t status;
+    hsa_device_type_t dev_type;
+    int mem_type = UCM_MEM_TYPE_ROCM;
     hsa_amd_pointer_info_t info = {
         .size = sizeof(hsa_amd_pointer_info_t),
     };
@@ -78,18 +80,19 @@ static void ucm_hsa_amd_memory_pool_free_dispatch_events(void *ptr)
         size = info.sizeInBytes;
     }
 
-    if (userptr_enabled) {
-        hsa_device_type_t type;
-
-        status = hsa_agent_get_info(info.agentOwner, HSA_AGENT_INFO_DEVICE, &type);
-        if (status == HSA_STATUS_SUCCESS &&
-            (type != HSA_DEVICE_TYPE_GPU ||
-             info.type == HSA_EXT_POINTER_TYPE_UNKNOWN ||
-             info.type == HSA_EXT_POINTER_TYPE_LOCKED))
+    status = hsa_agent_get_info(info.agentOwner, HSA_AGENT_INFO_DEVICE, &dev_type);
+    if (status == HSA_STATUS_SUCCESS) {
+        if (info.type != HSA_EXT_POINTER_TYPE_HSA)
             return;
+
+        if (dev_type != HSA_DEVICE_TYPE_GPU) {
+            if (userptr_enabled)
+                return;
+            mem_type= UCM_MEM_TYPE_ROCM_MANAGED;
+        }
     }
 
-    ucm_dispatch_mem_type_free(ptr, size, UCM_MEM_TYPE_ROCM);
+    ucm_dispatch_mem_type_free(ptr, size, mem_type);
 }
 
 hsa_status_t ucm_hsa_amd_memory_pool_free(void* ptr)
@@ -114,15 +117,18 @@ hsa_status_t ucm_hsa_amd_memory_pool_allocate(
 {
     hsa_status_t status;
     bool send_event = true;
+    uint32_t pool_flags = 0;
+    int type = UCM_MEM_TYPE_ROCM;
 
-    if (userptr_enabled) {
-        uint32_t flags = 0;
-
-        status = hsa_amd_memory_pool_get_info(memory_pool,
-                                              HSA_AMD_MEMORY_POOL_INFO_GLOBAL_FLAGS,
-                                              &flags);
-        if (status == HSA_STATUS_SUCCESS)
-            send_event = !!(flags & HSA_AMD_MEMORY_POOL_GLOBAL_FLAG_COARSE_GRAINED);
+    status = hsa_amd_memory_pool_get_info(memory_pool,
+                                          HSA_AMD_MEMORY_POOL_INFO_GLOBAL_FLAGS,
+                                          &pool_flags);
+    if (status == HSA_STATUS_SUCCESS) {
+        if (!(pool_flags & HSA_AMD_MEMORY_POOL_GLOBAL_FLAG_COARSE_GRAINED)) {
+            type = UCM_MEM_TYPE_ROCM_MANAGED;
+            if (userptr_enabled)
+                send_event = false;
+        }
     }
 
     ucm_event_enter();
@@ -130,7 +136,7 @@ hsa_status_t ucm_hsa_amd_memory_pool_allocate(
     status = ucm_orig_hsa_amd_memory_pool_allocate(memory_pool, size, flags, ptr);
     if (status == HSA_STATUS_SUCCESS && send_event) {
         ucm_trace("ucm_hsa_amd_memory_pool_allocate(ptr=%p size:%lu)", *ptr, size);
-        ucm_dispatch_mem_type_alloc(*ptr, size, UCM_MEM_TYPE_ROCM);
+        ucm_dispatch_mem_type_alloc(*ptr, size, type);
     }
 
     ucm_event_leave();
