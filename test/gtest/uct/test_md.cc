@@ -24,6 +24,10 @@ extern "C" {
 #include <cuda_runtime.h>
 #endif
 
+#if HAVE_ROCM
+#include <common/rocm.h>
+#endif
+
 std::string const test_md::mem_types[] = {"host", "cuda", "cuda-managed", "rocm"};
 
 void* test_md::alloc_thread(void *arg)
@@ -141,6 +145,22 @@ void test_md::alloc_memory(void **address, size_t size, char *fill_buffer, int m
         ss << "can't allocate cuda memory for " << GetParam();
         UCS_TEST_SKIP_R(ss.str());
 #endif
+    } else if (mem_type == UCT_MD_MEM_TYPE_ROCM) {
+#if HAVE_ROCM
+        void *buffer = ucs::rocm_helper.alloc_mem(size);
+        ASSERT_TRUE(buffer);
+
+        if(fill_buffer) {
+            hsa_status_t status = hsa_memory_copy(buffer, fill_buffer, size);
+            ASSERT_TRUE(status == HSA_STATUS_SUCCESS);
+        }
+
+        *address = buffer;
+#else
+        std::stringstream ss;
+        ss << "can't allocate rocm memory for " << GetParam();
+        UCS_TEST_SKIP_R(ss.str());
+#endif
     }
 }
 
@@ -163,6 +183,19 @@ void test_md::check_memory(void *address, void *expect, size_t size, int mem_typ
         EXPECT_EQ(0, ret);
         free(temp);
 #endif
+    } else if (mem_type == UCT_MD_MEM_TYPE_ROCM) {
+#if HAVE_ROCM
+        void *temp;
+        hsa_status_t status;
+
+        temp = malloc(size);
+        ASSERT_TRUE(temp != NULL);
+        status = hsa_memory_copy(temp, address, size);
+        ASSERT_TRUE(status == HSA_STATUS_SUCCESS);
+        ret = memcmp(temp, expect, size);
+        EXPECT_EQ(0, ret);
+        free(temp);
+#endif
     }
 }
 
@@ -173,6 +206,10 @@ void test_md::free_memory(void *address, int mem_type)
     } else if (mem_type == UCT_MD_MEM_TYPE_CUDA) {
 #if HAVE_CUDA
         cudaFree(address);
+#endif
+    } else if (mem_type == UCT_MD_MEM_TYPE_ROCM) {
+#if HAVE_ROCM
+        ucs::rocm_helper.free_mem(address);
 #endif
     }
 }
@@ -307,6 +344,7 @@ UCS_TEST_P(test_md, reg) {
                              << "registration is not supported by " << GetParam();
             continue;
         }
+
         for (unsigned i = 0; i < 300; ++i) {
             size = ucs::rand() % 65536;
             if (size == 0) {
