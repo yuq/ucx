@@ -219,6 +219,20 @@ noinst_HEADERS = \
 	ucp/ucp_test.h \
 	ucp/ucp_datatype.h
 
+if HAVE_ROCM
+gtest_SOURCES += \
+	common/rocm.cc
+
+noinst_HEADERS += \
+	common/rocm.h
+
+gtest_CPPFLAGS += \
+	$(ROCM_CPPFLAGS)
+gtest_LDFLAGS += \
+	$(ROCM_LDFLAGS) $(ROCM_LIBS)
+endif
+
+
 .PHONY: test test gdb valgrind fix_rpath ucx
 
 
