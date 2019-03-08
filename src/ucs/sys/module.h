@@ -9,15 +9,6 @@
 #define UCS_MODULE_H_
 
 #include <ucs/type/init_once.h>
-#include <ucs/sys/compiler_def.h>
-
-
-/**
- * Flags for @ref UCS_MODULE_FRAMEWORK_LOAD
- */
-typedef enum {
-    UCS_MODULE_LOAD_FLAG_NODELETE = UCS_BIT(0) /**< Never unload */
-} ucs_module_load_flags_t;
 
 
 /**
@@ -34,10 +25,6 @@ typedef enum {
 
 /**
  * Load all modules in a particular framework.
- *
- * @param [in]  _name   Framework name, same as passed to
- *                      @ref UCS_MODULE_FRAMEWORK_DECLARE
- * @param [in]  _flags  Modules load flags, see @ref ucs_module_load_flags_t
  *
  * The modules in the framework are loaded by dlopen(). The shared library name
  * of a module is: "lib<framework>_<module>.so.<version>", where:
@@ -59,9 +46,8 @@ typedef enum {
  *
  * @param [in] _name  Framework name (as a token)
  */
-#define UCS_MODULE_FRAMEWORK_LOAD(_name, _flags) \
-    ucs_load_modules(#_name, _name##_MODULES, &ucs_framework_init_once_##_name, \
-                     _flags)
+#define UCS_MODULE_FRAMEWORK_LOAD(_name) \
+    ucs_load_modules(#_name, _name##_MODULES, &ucs_framework_init_once_##_name)
 
 
 /**
@@ -89,7 +75,7 @@ typedef enum {
  * Internal function. Please use @ref UCS_MODULE_FRAMEWORK_LOAD macro instead.
  */
 void ucs_load_modules(const char *framework, const char *modules,
-                      ucs_init_once_t *init_once, unsigned flags);
+                      ucs_init_once_t *init_once);
 
 
 #endif

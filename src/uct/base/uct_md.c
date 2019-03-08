@@ -62,7 +62,7 @@ ucs_status_t uct_query_md_resources(uct_md_resource_desc_t **resources_p,
     uct_md_component_t *mdc;
     ucs_status_t status;
 
-    UCS_MODULE_FRAMEWORK_LOAD(uct, 0);
+    UCS_MODULE_FRAMEWORK_LOAD(uct);
 
     resources     = NULL;
     num_resources = 0;

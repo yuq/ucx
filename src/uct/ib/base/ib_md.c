@@ -1236,7 +1236,7 @@ static ucs_status_t uct_ib_query_md_resources(uct_md_resource_desc_t **resources
     ucs_status_t status;
     int i, num_devices;
 
-    UCS_MODULE_FRAMEWORK_LOAD(uct_ib, 0);
+    UCS_MODULE_FRAMEWORK_LOAD(uct_ib);
 
     /* Get device list from driver */
     device_list = ibv_get_device_list(&num_devices);
