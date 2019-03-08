@@ -165,6 +165,6 @@ int uct_rocm_base_is_mem_type_owned(uct_md_h md, void *addr, size_t length)
 
 UCS_MODULE_INIT() {
     UCS_MODULE_FRAMEWORK_DECLARE(uct_rocm);
-    UCS_MODULE_FRAMEWORK_LOAD(uct_rocm, 0);
+    UCS_MODULE_FRAMEWORK_LOAD(uct_rocm);
     return UCS_OK;
 }
